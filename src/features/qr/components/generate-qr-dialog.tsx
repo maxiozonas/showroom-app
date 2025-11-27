@@ -34,6 +34,7 @@ interface QrResult {
   id: number
   qrUrl: string
   url: string
+  createdAt: string
 }
 
 const BASE_URL = 'https://giliycia.com.ar'
@@ -47,6 +48,7 @@ export function GenerateQrDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [qrResult, setQrResult] = useState<QrResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isExisting, setIsExisting] = useState(false)
 
   // Auto-generar QR cuando se abre el diálogo
   useEffect(() => {
@@ -86,8 +88,22 @@ export function GenerateQrDialog({
       }
 
       const result = await response.json()
+      
+      // Verificar si es un QR existente comparando la fecha de creación
+      const qrDate = new Date(result.createdAt)
+      const now = new Date()
+      const diffInSeconds = (now.getTime() - qrDate.getTime()) / 1000
+      const isExistingQr = diffInSeconds > 5 // Si fue creado hace más de 5 segundos, es existente
+      
       setQrResult(result)
-      toast.success('✅ Código QR generado y guardado exitosamente')
+      setIsExisting(isExistingQr)
+      
+      if (isExistingQr) {
+        toast.info('ℹ️ Mostrando QR existente del producto')
+      } else {
+        toast.success('✅ Código QR generado y guardado exitosamente')
+      }
+      
       // Llamar callback para invalidar caché
       if (onSuccess) {
         onSuccess()
@@ -195,6 +211,7 @@ export function GenerateQrDialog({
   const handleClose = () => {
     setQrResult(null)
     setError(null)
+    setIsExisting(false)
     onOpenChange(false)
   }
 
@@ -203,14 +220,21 @@ export function GenerateQrDialog({
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="text-center">
-            {isLoading ? 'Generando QR...' : '¡QR Generado!'}
+            {isLoading ? 'Cargando...' : isExisting ? 'QR del Producto' : '¡QR Generado!'}
           </DialogTitle>
+          {!isLoading && qrResult && (
+            <DialogDescription className="text-center">
+              {isExisting 
+                ? 'Este producto ya tiene un código QR generado'
+                : 'Código QR generado exitosamente'}
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Generando código QR...</p>
+            <p className="text-sm text-muted-foreground">Cargando código QR...</p>
           </div>
         ) : error ? (
           <div className="space-y-4">
@@ -229,7 +253,9 @@ export function GenerateQrDialog({
             <div className="text-center">
               <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                Código QR generado y guardado exitosamente
+                {isExisting 
+                  ? 'Un producto solo puede tener un código QR'
+                  : 'Código QR generado y guardado exitosamente'}
               </p>
             </div>
 

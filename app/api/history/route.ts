@@ -6,6 +6,7 @@ const historyQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(10),
   search: z.string().optional().nullable().transform(val => val || undefined),
+  productId: z.coerce.number().int().positive().optional().nullable().transform(val => val || undefined),
 })
 
 export async function GET(request: NextRequest) {
@@ -15,23 +16,28 @@ export async function GET(request: NextRequest) {
       page: searchParams.get('page'),
       limit: searchParams.get('limit'),
       search: searchParams.get('search'),
+      productId: searchParams.get('productId'),
     }
 
     // Validar query params
-    const { page, limit, search } = historyQuerySchema.parse(queryParams)
+    const { page, limit, search, productId } = historyQuerySchema.parse(queryParams)
     const skip = (page - 1) * limit
 
     // Construir filtro de búsqueda
-    const where = search
-      ? {
-          product: {
-            sku: {
-              contains: search,
-              mode: 'insensitive' as const,
-            },
-          },
-        }
-      : {}
+    const where: any = {}
+    
+    if (productId) {
+      where.productId = productId
+    }
+    
+    if (search) {
+      where.product = {
+        sku: {
+          contains: search,
+          mode: 'insensitive' as const,
+        },
+      }
+    }
 
     // Obtener historial con información del producto
     const [history, total] = await Promise.all([

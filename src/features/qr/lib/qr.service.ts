@@ -17,10 +17,28 @@ export interface GenerateQrResult {
 
 export class QrService {
   /**
-   * Genera un código QR para un producto y lo guarda localmente
+   * Obtiene el QR existente de un producto o genera uno nuevo si no existe
    */
   static async generateQr(input: GenerateQrInput): Promise<GenerateQrResult> {
     try {
+      // Verificar si ya existe un QR para este producto
+      const existingQr = await prisma.qRHistory.findFirst({
+        where: { productId: input.productId },
+        orderBy: { createdAt: 'desc' },
+      })
+
+      // Si ya existe un QR, retornarlo
+      if (existingQr) {
+        return {
+          id: existingQr.id,
+          productId: existingQr.productId,
+          url: existingQr.url,
+          qrUrl: existingQr.qrUrl,
+          createdAt: existingQr.createdAt,
+        }
+      }
+
+      // Si no existe, generar uno nuevo
       // Obtener información del producto
       const product = await prisma.product.findUnique({
         where: { id: input.productId },

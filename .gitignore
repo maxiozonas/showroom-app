@@ -41,4 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 # qr codes (generated files)
-/public/qr-codes
+/public/qr-codes\
+
+/docs

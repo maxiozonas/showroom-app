@@ -44,7 +44,7 @@ export class ProductService {
     ])
 
     // Agregar información de si tiene QRs
-    const productsWithQrInfo = products.map(product => ({
+    const productsWithQrInfo = products.map((product: typeof products[0]) => ({
       ...product,
       hasQrs: product.qrs.length > 0,
       qrs: undefined, // Remover el array de qrs del response
@@ -122,7 +122,7 @@ export class ProductService {
 
     // Eliminar QRs de UploadThing
     if (qrs.length > 0) {
-      const qrUrls = qrs.map(qr => qr.qrUrl)
+      const qrUrls = qrs.map((qr: { qrUrl: string }) => qr.qrUrl)
       try {
         await QrStorageService.deleteMultipleQrs(qrUrls)
         console.log(`✅ ${qrs.length} QRs eliminados de UploadThing para producto ${id}`)

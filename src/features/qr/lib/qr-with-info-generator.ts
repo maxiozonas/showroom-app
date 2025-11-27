@@ -1,6 +1,18 @@
 import QRCode from 'qrcode'
 import sharp from 'sharp'
 
+/**
+ * Escapa caracteres especiales para XML/SVG
+ */
+function escapeXml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
 export interface ProductInfo {
   sku: string
   name: string
@@ -47,9 +59,9 @@ export async function generateQrWithProductInfo(
   const totalHeight = qrSize + textHeight + padding * 3
   const totalWidth = qrSize + padding * 2
 
-  // Crear SVG con el texto
-  const textSvg = `
-    <svg width="${totalWidth}" height="${textHeight + padding}">
+  // Crear SVG con el texto (con declaración XML y encoding UTF-8)
+  const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
+    <svg width="${totalWidth}" height="${textHeight + padding}" xmlns="http://www.w3.org/2000/svg">
       ${textLines.map(line => `
         <text 
           x="${totalWidth / 2}" 
@@ -59,12 +71,13 @@ export async function generateQrWithProductInfo(
           font-weight="${line.bold ? 'bold' : 'normal'}" 
           text-anchor="middle" 
           fill="#000000"
-        >${line.text}</text>
+        >${escapeXml(line.text)}</text>
       `).join('')}
     </svg>
   `
 
-  const textBuffer = Buffer.from(textSvg)
+  // Crear buffer con encoding UTF-8 explícito
+  const textBuffer = Buffer.from(textSvg, 'utf-8')
 
   // Combinar QR y texto usando sharp
   const finalImage = await sharp({

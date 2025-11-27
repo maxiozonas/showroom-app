@@ -1,0 +1,49 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id        Int         @id @default(autoincrement())
+  sku       String      @unique
+  name      String
+  brand     String?
+  urlKey    String?     // URL key para construir la URL del producto
+  enabled   Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  qrs       QRHistory[]
+
+  // Índices para optimizar queries
+  @@index([sku])
+  @@index([name])
+  @@index([brand])
+  @@index([enabled])
+  @@index([createdAt(sort: Desc)])
+  @@index([updatedAt(sort: Desc)])
+  // Índices compuestos para búsquedas comunes
+  @@index([enabled, createdAt(sort: Desc)])
+  @@index([brand, enabled])
+}
+
+model QRHistory {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String   // URL del artículo en el ecommerce
+  qrUrl     String   // URL del PNG del QR en Cloudinary
+  createdAt DateTime @default(now())
+
+  // Índices para optimizar queries
+  @@index([productId])
+  @@index([createdAt(sort: Desc)])
+  // Índice compuesto para búsquedas por producto y fecha
+  @@index([productId, createdAt(sort: Desc)])
+}

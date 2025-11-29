@@ -21,65 +21,70 @@ export interface ProductInfo {
 }
 
 export interface QrWithInfoOptions {
-  qrSize?: number
+  qrSize?: number // Tamaño del QR en píxeles (945px = 8cm a 300 DPI)
   padding?: number
 }
 
 /**
- * Genera una imagen que contiene el QR code y la información del producto usando SVG
+ * Genera una imagen que contiene el QR code con nombre arriba y SKU abajo.
+ * Tamaño optimizado para impresión (8cm x 8cm a 300 DPI)
  */
 export async function generateQrWithProductInfo(
   productInfo: ProductInfo,
   options: QrWithInfoOptions = {}
 ): Promise<Buffer> {
   const {
-    qrSize = 400,
-    padding = 40,
+    qrSize = 945, // 8cm a 300 DPI = 945px
+    padding = 30,
   } = options
 
   // Generar el QR code como buffer PNG
   const qrBuffer = await QRCode.toBuffer(productInfo.url, {
     type: 'png',
     width: qrSize,
-    margin: 2,
-    errorCorrectionLevel: 'M',
+    margin: 1,
+    errorCorrectionLevel: 'M', // Medium: balance entre capacidad y corrección de errores
   })
 
-  // Crear texto SVG con la información del producto
-  const textLines = [
-    { text: productInfo.name, fontSize: 20, bold: true, y: 0 },
-    { text: `SKU: ${productInfo.sku}`, fontSize: 16, bold: false, y: 30 },
-  ]
-
-  if (productInfo.brand) {
-    textLines.push({ text: `Marca: ${productInfo.brand}`, fontSize: 16, bold: false, y: 55 })
-  }
-
-  const textHeight = productInfo.brand ? 80 : 55
-  const totalHeight = qrSize + textHeight + padding * 3
-  const totalWidth = qrSize + padding * 2
-
-  // Crear SVG con el texto (con declaración XML y encoding UTF-8)
-  const textSvg = `<?xml version="1.0" encoding="UTF-8"?>
-    <svg width="${totalWidth}" height="${textHeight + padding}" xmlns="http://www.w3.org/2000/svg">
-      ${textLines.map(line => `
-        <text 
-          x="${totalWidth / 2}" 
-          y="${line.y + padding}" 
-          font-family="Arial, sans-serif" 
-          font-size="${line.fontSize}" 
-          font-weight="${line.bold ? 'bold' : 'normal'}" 
-          text-anchor="middle" 
-          fill="#000000"
-        >${escapeXml(line.text)}</text>
-      `).join('')}
+  // Crear texto superior (nombre del producto)
+  const nameHeight = 60
+  const nameSvg = `<?xml version="1.0" encoding="UTF-8"?>
+    <svg width="${qrSize}" height="${nameHeight}" xmlns="http://www.w3.org/2000/svg">
+      <text 
+        x="${qrSize / 2}" 
+        y="40" 
+        font-family="Arial, sans-serif" 
+        font-size="28" 
+        font-weight="bold" 
+        text-anchor="middle" 
+        fill="#000000"
+      >${escapeXml(productInfo.name)}</text>
     </svg>
   `
+  const nameBuffer = Buffer.from(nameSvg, 'utf-8')
 
-  // Crear buffer con encoding UTF-8 explícito
-  const textBuffer = Buffer.from(textSvg, 'utf-8')
+  // Crear texto inferior (SKU)
+  const skuHeight = 50
+  const skuSvg = `<?xml version="1.0" encoding="UTF-8"?>
+    <svg width="${qrSize}" height="${skuHeight}" xmlns="http://www.w3.org/2000/svg">
+      <text 
+        x="${qrSize / 2}" 
+        y="35" 
+        font-family="Arial, sans-serif" 
+        font-size="24" 
+        font-weight="normal" 
+        text-anchor="middle" 
+        fill="#000000"
+      >SKU: ${escapeXml(productInfo.sku)}</text>
+    </svg>
+  `
+  const skuBuffer = Buffer.from(skuSvg, 'utf-8')
 
-  // Combinar QR y texto usando sharp
+  // Calcular dimensiones totales
+  const totalHeight = nameHeight + qrSize + skuHeight + padding * 2
+  const totalWidth = qrSize + padding * 2
+
+  // Combinar todos los elementos (sin logo)
   const finalImage = await sharp({
     create: {
       width: totalWidth,
@@ -89,16 +94,24 @@ export async function generateQrWithProductInfo(
     }
   })
     .composite([
+      // Nombre del producto (arriba)
       {
-        input: qrBuffer,
+        input: nameBuffer,
         top: padding,
         left: padding,
       },
+      // QR code
       {
-        input: textBuffer,
-        top: qrSize + padding * 2,
-        left: 0,
-      }
+        input: qrBuffer,
+        top: nameHeight + padding,
+        left: padding,
+      },
+      // SKU (abajo)
+      {
+        input: skuBuffer,
+        top: nameHeight + qrSize + padding,
+        left: padding,
+      },
     ])
     .png()
     .toBuffer()

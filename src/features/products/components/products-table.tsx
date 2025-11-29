@@ -34,6 +34,7 @@ import { ProductFormDialog } from './product-form-dialog'
 import { toast } from 'sonner'
 import type { ProductQuery } from '../schemas/product.schema'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Checkbox } from '@/components/ui/checkbox'
 
 interface Product {
   id: number
@@ -49,9 +50,12 @@ interface Product {
 
 interface ProductsTableProps {
   onGenerateQR?: (product: Product) => void
+  selectedProducts?: number[]
+  onSelectionChange?: (selectedIds: number[]) => void
+  onProductsLoaded?: (products: Product[]) => void
 }
 
-export function ProductsTable({ onGenerateQR }: ProductsTableProps) {
+export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelectionChange, onProductsLoaded }: ProductsTableProps) {
   // Paginación y filtros
   const [page, setPage] = useState(1)
   const [limit] = useState(10)
@@ -65,6 +69,38 @@ export function ProductsTable({ onGenerateQR }: ProductsTableProps) {
   // Dialogs
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+
+  // Manejar selección de productos
+  const handleToggleProduct = (productId: number) => {
+    if (!onSelectionChange) return
+    
+    const newSelection = selectedProducts.includes(productId)
+      ? selectedProducts.filter(id => id !== productId)
+      : selectedProducts.length < 4
+        ? [...selectedProducts, productId]
+        : selectedProducts
+    
+    if (selectedProducts.length >= 4 && !selectedProducts.includes(productId)) {
+      toast.error('❌ Máximo 4 productos seleccionados')
+      return
+    }
+    
+    onSelectionChange(newSelection)
+  }
+
+  const handleToggleAll = () => {
+    if (!onSelectionChange) return
+    
+    if (selectedProducts.length === products.length) {
+      onSelectionChange([])
+    } else {
+      const newSelection = products.slice(0, 4).map(p => p.id)
+      onSelectionChange(newSelection)
+      if (products.length > 4) {
+        toast.info('ℹ️ Solo se pueden seleccionar 4 productos máximo')
+      }
+    }
+  }
 
   // Resetear página cuando cambian los filtros
   useEffect(() => {
@@ -87,6 +123,13 @@ export function ProductsTable({ onGenerateQR }: ProductsTableProps) {
 
   const products = data?.products || []
   const pagination = data?.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }
+
+  // Notificar cuando se cargan los productos
+  useEffect(() => {
+    if (products.length > 0 && onProductsLoaded) {
+      onProductsLoaded(products)
+    }
+  }, [products, onProductsLoaded])
 
   const handleDelete = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return
@@ -165,6 +208,15 @@ export function ProductsTable({ onGenerateQR }: ProductsTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              {onSelectionChange && (
+                <TableHead className="w-[50px]">
+                  <Checkbox
+                    checked={selectedProducts.length === products.length && products.length > 0}
+                    onCheckedChange={handleToggleAll}
+                    aria-label="Seleccionar todos"
+                  />
+                </TableHead>
+              )}
               <TableHead>SKU</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Marca</TableHead>
@@ -177,6 +229,7 @@ export function ProductsTable({ onGenerateQR }: ProductsTableProps) {
             {isLoading ? (
               [...Array(5)].map((_, i) => (
                 <TableRow key={i}>
+                  {onSelectionChange && <TableCell><Skeleton className="h-4 w-4" /></TableCell>}
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
@@ -193,13 +246,23 @@ export function ProductsTable({ onGenerateQR }: ProductsTableProps) {
               ))
             ) : products.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={onSelectionChange ? 7 : 6} className="text-center">
                   No se encontraron productos
                 </TableCell>
               </TableRow>
             ) : (
               products.map((product) => (
                 <TableRow key={product.id}>
+                  {onSelectionChange && (
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedProducts.includes(product.id)}
+                        onCheckedChange={() => handleToggleProduct(product.id)}
+                        disabled={!product.urlKey || (!selectedProducts.includes(product.id) && selectedProducts.length >= 4)}
+                        aria-label={`Seleccionar ${product.sku}`}
+                      />
+                    </TableCell>
+                  )}
                   <TableCell className="font-medium">{product.sku}</TableCell>
                   <TableCell>{product.name}</TableCell>
                   <TableCell>{product.brand || '-'}</TableCell>

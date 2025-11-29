@@ -8,6 +8,7 @@ import { AppLayout } from '@/src/components/app-layout'
 import { Button } from '@/components/ui/button'
 import { QrCode, Loader2, Printer } from 'lucide-react'
 import { toast } from 'sonner'
+import { QrClientService } from '@/src/features/qr/lib/qr-client.service'
 
 interface Product {
   id: number
@@ -125,33 +126,24 @@ export default function ProductsPage() {
         return
       }
 
-      const response = await fetch('/api/qrs/generate-multiple', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          products: selectedProducts.map((p: Product) => ({
-            id: p.id,
-            sku: p.sku,
-            name: p.name,
-            brand: p.brand,
-            urlKey: p.urlKey,
-          })),
-        }),
-      })
+      // Generar QRs en el cliente
+      const results = await QrClientService.generateAndUploadMultipleQrs(
+        selectedProducts.map((p: Product) => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          brand: p.brand,
+          urlKey: p.urlKey!,
+        }))
+      )
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Error al generar QRs')
-      }
+      setBulkQrResults(results)
 
-      const data = await response.json()
-      setBulkQrResults(data.results)
-
-      const successCount = data.results.filter((r: any) => r.success).length
+      const successCount = results.filter((r: any) => r.success).length
       toast.success(`✅ ${successCount} QR(s) generado(s) exitosamente`)
 
       // Abrir vista de impresión automáticamente
-      handlePrintBulkQrs(data.results)
+      handlePrintBulkQrs(results)
 
       // Limpiar selección y actualizar cache
       setSelectedProductIds([])

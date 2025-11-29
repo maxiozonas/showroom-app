@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Download, Printer, CheckCircle2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { QrClientService } from '../lib/qr-client.service'
 
 interface Product {
   id: number
@@ -58,11 +59,8 @@ export function GenerateQrDialog({
   }, [open, product])
 
   const handleGenerateQR = async () => {
-    if (!product) return
-
-    // Verificar que el producto tenga urlKey
-    if (!product.urlKey) {
-      setError('El producto no tiene un URL key configurado. Por favor, actualiza el producto con su URL key.')
+    if (!product || !product.urlKey) {
+      setError('El producto no tiene una URL key configurada')
       return
     }
 
@@ -70,35 +68,29 @@ export function GenerateQrDialog({
     setError(null)
 
     try {
-      // Construir la URL completa
       const productUrl = `${BASE_URL}/${product.urlKey}.html`
-
-      const response = await fetch('/api/qrs/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: product.id,
+      
+      // Generar QR en el cliente y subirlo
+      const result = await QrClientService.generateAndUploadQr({
+        productId: product.id,
+        url: productUrl,
+        productInfo: {
+          sku: product.sku,
+          name: product.name,
+          brand: product.brand,
           url: productUrl,
-        }),
+        },
       })
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Error al generar QR')
-      }
-
-      const result = await response.json()
+      setQrResult({
+        id: result.id,
+        qrUrl: result.qrUrl,
+        url: productUrl,
+        createdAt: new Date().toISOString(),
+      })
       
-      // Verificar si es un QR existente comparando la fecha de creación
-      const qrDate = new Date(result.createdAt)
-      const now = new Date()
-      const diffInSeconds = (now.getTime() - qrDate.getTime()) / 1000
-      const isExistingQr = diffInSeconds > 5 // Si fue creado hace más de 5 segundos, es existente
-      
-      setQrResult(result)
-      setIsExisting(isExistingQr)
-      
-      if (isExistingQr) {
+      if (result.isNew) {
+        toast.success('✅ QR generado exitosamente')
         toast.info('ℹ️ Mostrando QR existente del producto')
       } else {
         toast.success('✅ Código QR generado y guardado exitosamente')

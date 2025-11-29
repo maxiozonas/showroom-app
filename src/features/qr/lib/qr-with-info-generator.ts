@@ -48,37 +48,35 @@ export async function generateQrWithProductInfo(
 
   // Crear texto superior (nombre del producto)
   const nameHeight = 60
-  const nameSvg = `<?xml version="1.0" encoding="UTF-8"?>
-    <svg width="${qrSize}" height="${nameHeight}" xmlns="http://www.w3.org/2000/svg">
-      <text 
-        x="${qrSize / 2}" 
-        y="40" 
-        font-family="Arial, sans-serif" 
-        font-size="28" 
-        font-weight="bold" 
-        text-anchor="middle" 
-        fill="#000000"
-      >${escapeXml(productInfo.name)}</text>
-    </svg>
-  `
-  const nameBuffer = Buffer.from(nameSvg, 'utf-8')
+  const nameSvg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="${qrSize}" height="${nameHeight}" xmlns="http://www.w3.org/2000/svg">
+  <text 
+    x="${qrSize / 2}" 
+    y="40" 
+    font-family="Arial, sans-serif" 
+    font-size="28" 
+    font-weight="bold" 
+    text-anchor="middle" 
+    fill="#000000"
+  >${escapeXml(productInfo.name)}</text>
+</svg>`
+  const nameBuffer = Buffer.from(nameSvg, 'utf8')
 
   // Crear texto inferior (SKU)
   const skuHeight = 50
-  const skuSvg = `<?xml version="1.0" encoding="UTF-8"?>
-    <svg width="${qrSize}" height="${skuHeight}" xmlns="http://www.w3.org/2000/svg">
-      <text 
-        x="${qrSize / 2}" 
-        y="35" 
-        font-family="Arial, sans-serif" 
-        font-size="24" 
-        font-weight="normal" 
-        text-anchor="middle" 
-        fill="#000000"
-      >SKU: ${escapeXml(productInfo.sku)}</text>
-    </svg>
-  `
-  const skuBuffer = Buffer.from(skuSvg, 'utf-8')
+  const skuSvg = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="${qrSize}" height="${skuHeight}" xmlns="http://www.w3.org/2000/svg">
+  <text 
+    x="${qrSize / 2}" 
+    y="35" 
+    font-family="Arial, sans-serif" 
+    font-size="24" 
+    font-weight="normal" 
+    text-anchor="middle" 
+    fill="#000000"
+  >SKU: ${escapeXml(productInfo.sku)}</text>
+</svg>`
+  const skuBuffer = Buffer.from(skuSvg, 'utf8')
 
   // Calcular dimensiones totales
   const totalHeight = nameHeight + qrSize + skuHeight + padding * 2

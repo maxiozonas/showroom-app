@@ -50,52 +50,57 @@ export function QrDetailsDialog({ open, onOpenChange, qrData }: QrDetailsDialogP
       return
     }
 
+    // Dimensiones del QR: 9.9cm x 12.4cm (+ margen de líneas de corte)
+    const qrWidth = '10.9cm'
+    const qrHeight = '13.4cm'
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>QR - ${qrData.product.name}</title>
           <style>
-            body {
+            @page {
+              size: A4;
+              margin: 0.5cm;
+            }
+            
+            * {
               margin: 0;
-              padding: 20px;
-              font-family: Arial, sans-serif;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
               display: flex;
-              justify-content: center;
               align-items: center;
+              justify-content: center;
               min-height: 100vh;
+              background: white;
             }
-            .container {
-              text-align: center;
-              max-width: 400px;
+            
+            .qr-container {
+              width: ${qrWidth};
+              height: ${qrHeight};
             }
-            img {
-              width: 300px;
-              height: 300px;
-              margin-bottom: 20px;
+            
+            .qr-container img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
             }
-            h2 {
-              margin: 10px 0;
-              color: #333;
-            }
-            p {
-              margin: 5px 0;
-              color: #666;
-            }
+            
             @media print {
               body {
-                padding: 0;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
               }
             }
           </style>
         </head>
         <body>
-          <div class="container">
+          <div class="qr-container">
             <img src="${qrData.qrUrl}" alt="QR Code" />
-            <h2>${qrData.product.name}</h2>
-            <p><strong>SKU:</strong> ${qrData.product.sku}</p>
-            ${qrData.product.brand ? `<p><strong>Marca:</strong> ${qrData.product.brand}</p>` : ''}
-            <p><strong>URL:</strong> ${qrData.url}</p>
           </div>
         </body>
       </html>

@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Download, Printer, CheckCircle2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { QrClientService } from '../lib/qr-client.service'
+import { generateQrWithProductInfoClient, dataUrlToBlob } from '../lib/qr-client-generator'
 
 interface Product {
   id: number
@@ -70,40 +71,55 @@ export function GenerateQrDialog({
     try {
       const productUrl = `${BASE_URL}/${product.urlKey}.html`
       
-      // Generar QR en el cliente y subirlo
-      const result = await QrClientService.generateAndUploadQr({
-        productId: product.id,
+      // 1. Generar QR en el cliente INMEDIATAMENTE
+      const dataUrl = await generateQrWithProductInfoClient({
+        sku: product.sku,
+        name: product.name,
+        brand: product.brand,
         url: productUrl,
-        productInfo: {
-          sku: product.sku,
-          name: product.name,
-          brand: product.brand,
-          url: productUrl,
-        },
       })
 
+      // 2. Mostrar QR inmediatamente con data URL (sin esperar upload)
       setQrResult({
-        id: result.id,
-        qrUrl: result.qrUrl,
+        id: 0, // Temporal hasta que se suba
+        qrUrl: dataUrl, // Usar data URL directamente
         url: productUrl,
         createdAt: new Date().toISOString(),
       })
-      
-      if (result.isNew) {
-        toast.success('✅ QR generado exitosamente')
-        toast.info('ℹ️ Mostrando QR existente del producto')
-      } else {
-        toast.success('✅ Código QR generado y guardado exitosamente')
-      }
-      
-      // Llamar callback para invalidar caché
-      if (onSuccess) {
-        onSuccess()
-      }
+      setIsLoading(false)
+      toast.success('✅ QR generado')
+
+      // 3. Subir a UploadThing en background (no bloquea)
+      const qrBlob = await dataUrlToBlob(dataUrl)
+      const formData = new FormData()
+      formData.append('file', qrBlob, `qr-${product.sku}.png`)
+      formData.append('productId', product.id.toString())
+      formData.append('url', productUrl)
+
+      fetch('/api/qrs/upload', {
+        method: 'POST',
+        body: formData,
+      }).then(async (response) => {
+        if (response.ok) {
+          const result = await response.json()
+          // Actualizar con URL permanente de UploadThing
+          setQrResult(prev => prev ? {
+            ...prev,
+            id: result.id,
+            qrUrl: result.qrUrl,
+          } : null)
+          
+          if (onSuccess) {
+            onSuccess()
+          }
+        }
+      }).catch((err) => {
+        console.error('Error subiendo QR en background:', err)
+      })
+
     } catch (error: any) {
       setError(error.message)
       toast.error(`❌ ${error.message}`)
-    } finally {
       setIsLoading(false)
     }
   }
@@ -138,55 +154,57 @@ export function GenerateQrDialog({
       return
     }
 
+    // Dimensiones del QR: 9.9cm x 12.4cm (+ margen de líneas de corte)
+    const qrWidth = '10.9cm'
+    const qrHeight = '13.4cm'
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>QR Code - ${product?.sku}</title>
           <style>
-            body {
+            @page {
+              size: A4;
+              margin: 0.5cm;
+            }
+            
+            * {
               margin: 0;
-              padding: 20px;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
               display: flex;
-              flex-direction: column;
               align-items: center;
               justify-content: center;
               min-height: 100vh;
-              font-family: Arial, sans-serif;
+              background: white;
             }
-            .container {
-              text-align: center;
+            
+            .qr-container {
+              width: ${qrWidth};
+              height: ${qrHeight};
             }
-            img {
-              max-width: 400px;
-              height: auto;
+            
+            .qr-container img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
             }
-            .info {
-              margin-top: 20px;
-            }
-            h2 {
-              margin: 10px 0;
-            }
-            p {
-              margin: 5px 0;
-              color: #666;
-            }
+            
             @media print {
               body {
-                padding: 0;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
               }
             }
           </style>
         </head>
         <body>
-          <div class="container">
+          <div class="qr-container">
             <img src="${qrResult.qrUrl}" alt="QR Code" />
-            <div class="info">
-              <h2>${product?.name}</h2>
-              <p><strong>SKU:</strong> ${product?.sku}</p>
-              ${product?.brand ? `<p><strong>Marca:</strong> ${product.brand}</p>` : ''}
-              <p><strong>URL:</strong> ${qrResult.url}</p>
-            </div>
           </div>
         </body>
       </html>

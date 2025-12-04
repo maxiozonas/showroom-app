@@ -32,6 +32,10 @@ async function fetchProducts(params: ProductQuery): Promise<ProductsResponse> {
   if (params.search) searchParams.append('search', params.search)
   if (params.brand) searchParams.append('brand', params.brand)
   if (params.enabled !== undefined) searchParams.append('enabled', params.enabled.toString())
+  
+  // Ordenar por fecha de creación descendente (últimos primero)
+  searchParams.append('sortBy', 'createdAt')
+  searchParams.append('sortOrder', 'desc')
 
   const response = await fetch(`/api/products?${searchParams}`)
   
@@ -100,8 +104,25 @@ export function useSaveProduct() {
       
       return response.json()
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] })
+    onSuccess: (updatedProduct, variables) => {
+      // Si es una edición, actualizar el producto en el caché sin refetch
+      if (variables.id) {
+        queryClient.setQueriesData<ProductsResponse>(
+          { queryKey: ['products'] },
+          (oldData) => {
+            if (!oldData) return oldData
+            return {
+              ...oldData,
+              products: oldData.products.map((p) =>
+                p.id === variables.id ? { ...p, ...updatedProduct } : p
+              ),
+            }
+          }
+        )
+      } else {
+        // Si es un nuevo producto, invalidar para que aparezca al inicio
+        queryClient.invalidateQueries({ queryKey: ['products'] })
+      }
     },
   })
 }

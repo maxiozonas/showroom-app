@@ -123,20 +123,25 @@ export class ImportService {
         }
       })
 
-      // Crear productos nuevos en batch
-      if (toCreate.length > 0) {
-        await prisma.product.createMany({
-          data: toCreate,
-          skipDuplicates: true,
-        })
-        result.created = toCreate.length
-      }
+      // Ejecutar creates y updates en una transacción batch
+      await prisma.$transaction(async (tx) => {
+        // Crear productos nuevos en batch
+        if (toCreate.length > 0) {
+          await tx.product.createMany({
+            data: toCreate,
+            skipDuplicates: true,
+          })
+          result.created = toCreate.length
+        }
 
-      // Actualizar productos existentes
-      for (const update of toUpdate) {
-        await prisma.product.update(update)
-        result.updated++
-      }
+        // Actualizar productos existentes en batch (transacción)
+        if (toUpdate.length > 0) {
+          await Promise.all(
+            toUpdate.map(update => tx.product.update(update))
+          )
+          result.updated = toUpdate.length
+        }
+      })
 
       result.success = result.created + result.updated
     } catch (error: any) {

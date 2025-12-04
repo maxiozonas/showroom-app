@@ -76,14 +76,7 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
     
     const newSelection = selectedProducts.includes(productId)
       ? selectedProducts.filter(id => id !== productId)
-      : selectedProducts.length < 4
-        ? [...selectedProducts, productId]
-        : selectedProducts
-    
-    if (selectedProducts.length >= 4 && !selectedProducts.includes(productId)) {
-      toast.error('❌ Máximo 4 productos seleccionados')
-      return
-    }
+      : [...selectedProducts, productId]
     
     onSelectionChange(newSelection)
   }
@@ -94,11 +87,7 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
     if (selectedProducts.length === products.length) {
       onSelectionChange([])
     } else {
-      const newSelection = products.slice(0, 4).map(p => p.id)
-      onSelectionChange(newSelection)
-      if (products.length > 4) {
-        toast.info('ℹ️ Solo se pueden seleccionar 4 productos máximo')
-      }
+      onSelectionChange(products.map(p => p.id))
     }
   }
 
@@ -258,7 +247,7 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
                       <Checkbox
                         checked={selectedProducts.includes(product.id)}
                         onCheckedChange={() => handleToggleProduct(product.id)}
-                        disabled={!product.urlKey || (!selectedProducts.includes(product.id) && selectedProducts.length >= 4)}
+                        disabled={!product.urlKey}
                         aria-label={`Seleccionar ${product.sku}`}
                       />
                     </TableCell>

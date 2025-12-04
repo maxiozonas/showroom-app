@@ -95,4 +95,64 @@ export class QrClientService {
 
     return results
   }
+
+  /**
+   * Sube QRs ya generados al servidor (sin regenerar)
+   * Optimizado para evitar doble generación
+   */
+  static async uploadPreGeneratedQrs(
+    qrData: Array<{
+      productId: number
+      sku: string
+      name: string
+      dataUrl: string
+      productUrl: string
+    }>
+  ) {
+    const results = await Promise.all(
+      qrData.map(async (qr) => {
+        try {
+          // Convertir data URL a Blob
+          const qrBlob = await dataUrlToBlob(qr.dataUrl)
+
+          // Crear FormData para subir
+          const formData = new FormData()
+          formData.append('file', qrBlob, `qr-${qr.sku}.png`)
+          formData.append('productId', qr.productId.toString())
+          formData.append('url', qr.productUrl)
+
+          // Subir al servidor
+          const response = await fetch('/api/qrs/upload', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.error || 'Error al subir QR')
+          }
+
+          const result = await response.json()
+
+          return {
+            success: true,
+            productId: qr.productId,
+            sku: qr.sku,
+            name: qr.name,
+            qrUrl: result.qrUrl,
+          }
+        } catch (error: any) {
+          return {
+            success: false,
+            productId: qr.productId,
+            sku: qr.sku,
+            name: qr.name,
+            error: error.message,
+          }
+        }
+      })
+    )
+
+    return results
+  }
 }

@@ -6,9 +6,10 @@ import { ProductsTable } from '@/src/features/products/components'
 import { GenerateQrDialog, QrDetailsDialog } from '@/src/features/qr/components'
 import { AppLayout } from '@/src/components/app-layout'
 import { Button } from '@/components/ui/button'
-import { QrCode, Loader2, Printer } from 'lucide-react'
+import { QrCode, Loader2, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { QrClientService } from '@/src/features/qr/lib/qr-client.service'
+import { generateQrWithProductInfoClient } from '@/src/features/qr/lib/qr-client-generator'
 
 interface Product {
   id: number
@@ -45,6 +46,7 @@ export default function ProductsPage() {
   // Selección múltiple de productos
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false)
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false)
   const [bulkQrResults, setBulkQrResults] = useState<any[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([])
 
@@ -115,6 +117,8 @@ export default function ProductsPage() {
     setBulkQrResults([])
 
     try {
+      const BASE_URL = 'https://giliycia.com.ar'
+      
       // Obtener datos de los productos seleccionados
       const selectedProducts = allProducts.filter((p: Product) => 
         selectedProductIds.includes(p.id)
@@ -126,24 +130,38 @@ export default function ProductsPage() {
         return
       }
 
-      // Generar QRs en el cliente
-      const results = await QrClientService.generateAndUploadMultipleQrs(
-        selectedProducts.map((p: Product) => ({
-          id: p.id,
-          sku: p.sku,
-          name: p.name,
-          brand: p.brand,
-          urlKey: p.urlKey!,
-        }))
+      // 1. Generar QRs en el cliente (rápido, sin subir)
+      toast.info('📊 Generando QRs...')
+      const qrDataUrls = await Promise.all(
+        selectedProducts.map(async (p: Product) => {
+          const productUrl = `${BASE_URL}/${p.urlKey}.html`
+          const dataUrl = await generateQrWithProductInfoClient({
+            sku: p.sku,
+            name: p.name,
+            brand: p.brand,
+            url: productUrl,
+          })
+          return {
+            productId: p.id,
+            sku: p.sku,
+            name: p.name,
+            dataUrl,
+            productUrl,
+          }
+        })
       )
 
+      // 2. Abrir ventana de impresión INMEDIATAMENTE (antes de subir)
+      handlePrintBulkQrsFromDataUrls(qrDataUrls.map(q => q.dataUrl))
+      toast.success(`✅ ${qrDataUrls.length} QR(s) listos para imprimir`)
+
+      // 3. Subir QRs ya generados al servidor (sin regenerar)
+      toast.info('📤 Guardando QRs en el servidor...')
+      const results = await QrClientService.uploadPreGeneratedQrs(qrDataUrls)
+
       setBulkQrResults(results)
-
       const successCount = results.filter((r: any) => r.success).length
-      toast.success(`✅ ${successCount} QR(s) generado(s) exitosamente`)
-
-      // Abrir vista de impresión automáticamente
-      handlePrintBulkQrs(results)
+      toast.success(`✅ ${successCount} QR(s) guardados en el servidor`)
 
       // Limpiar selección y actualizar cache
       setSelectedProductIds([])
@@ -153,6 +171,147 @@ export default function ProductsPage() {
     } finally {
       setIsGeneratingBulk(false)
     }
+  }
+
+  const handleDeleteBulkQrs = async () => {
+    // Filtrar solo productos que tienen QRs
+    const productsWithQrs = allProducts.filter(
+      (p: Product) => selectedProductIds.includes(p.id) && p.hasQrs
+    )
+
+    if (productsWithQrs.length === 0) {
+      toast.error('❌ Ninguno de los productos seleccionados tiene QRs')
+      return
+    }
+
+    // Confirmar eliminación
+    const confirmMessage = `¿Estás seguro de eliminar ${productsWithQrs.length} QR(s)? Esta acción no se puede deshacer.`
+    if (!window.confirm(confirmMessage)) {
+      return
+    }
+
+    setIsDeletingBulk(true)
+
+    try {
+      const response = await fetch('/api/qrs/delete-multiple', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productIds: productsWithQrs.map((p: Product) => p.id),
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al eliminar QRs')
+      }
+
+      const data = await response.json()
+      toast.success(`✅ ${data.deleted} QR(s) eliminados exitosamente`)
+
+      // Limpiar selección y actualizar cache
+      setSelectedProductIds([])
+      handleQrSuccess()
+    } catch (error: any) {
+      toast.error(`❌ ${error.message}`)
+    } finally {
+      setIsDeletingBulk(false)
+    }
+  }
+
+  const handlePrintBulkQrsFromDataUrls = (dataUrls: string[]) => {
+    if (dataUrls.length === 0) {
+      toast.error('❌ No hay QRs para imprimir')
+      return
+    }
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast.error('❌ No se pudo abrir la ventana de impresión. Permite ventanas emergentes para este sitio.')
+      return
+    }
+
+    // Dimensiones del QR: 9.9cm x 12.4cm (+ margen de marcas de corte ~1cm)
+    const qrWidth = '10.9cm'
+    const qrHeight = '13.4cm'
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Impresión de QRs</title>
+          <style>
+            @page {
+              size: A4;
+              margin: 0.5cm;
+            }
+            
+            * {
+              margin: 0;
+              padding: 0;
+              box-sizing: border-box;
+            }
+            
+            body {
+              font-family: Arial, sans-serif;
+              background: white;
+            }
+            
+            .container {
+              width: 100%;
+              min-height: 100vh;
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: center;
+              align-content: flex-start;
+              gap: 0.5cm;
+              padding: 0.5cm;
+            }
+            
+            .qr-item {
+              width: ${qrWidth};
+              height: ${qrHeight};
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              page-break-inside: avoid;
+            }
+            
+            .qr-item img {
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
+              display: block;
+            }
+            
+            @media print {
+              body {
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+              }
+              
+              .qr-item {
+                break-inside: avoid;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            ${dataUrls.map((dataUrl, index) => `
+              <div class="qr-item">
+                <img src="${dataUrl}" alt="QR ${index + 1}" />
+              </div>
+            `).join('')}
+          </div>
+        </body>
+      </html>
+    `)
+    
+    printWindow.document.close()
+    setTimeout(() => {
+      printWindow.print()
+    }, 500)
   }
 
   const handlePrintBulkQrs = (results: any[]) => {
@@ -274,23 +433,43 @@ export default function ProductsPage() {
               Gestiona los productos del showroom y genera códigos QR
             </p>
           </div>
-          <Button 
-            onClick={handleGenerateBulkQrs} 
-            size="lg"
-            disabled={selectedProductIds.length === 0 || isGeneratingBulk}
-          >
-            {isGeneratingBulk ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Generando...
-              </>
-            ) : (
-              <>
-                <Printer className="mr-2 h-5 w-5" />
-                Generar e Imprimir QRs ({selectedProductIds.length})
-              </>
-            )}
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleDeleteBulkQrs} 
+              size="lg"
+              variant="destructive"
+              disabled={selectedProductIds.length === 0 || isDeletingBulk || isGeneratingBulk}
+            >
+              {isDeletingBulk ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-5 w-5" />
+                  Eliminar QRs ({selectedProductIds.length})
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={handleGenerateBulkQrs} 
+              size="lg"
+              disabled={selectedProductIds.length === 0 || isGeneratingBulk || isDeletingBulk}
+            >
+              {isGeneratingBulk ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <Printer className="mr-2 h-5 w-5" />
+                  Generar e Imprimir QRs ({selectedProductIds.length})
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         <ProductsTable 

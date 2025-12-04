@@ -1,7 +1,6 @@
 'use client'
 
 import { CsvUpload } from '@/src/features/imports/components'
-import { AppLayout } from '@/src/components/app-layout'
 import { Button } from '@/components/ui/button'
 import { Download } from 'lucide-react'
 import { toast } from 'sonner'
@@ -26,26 +25,24 @@ SKU-003,Lámpara,,false`
   }
 
   return (
-    <AppLayout>
-      <div className="p-8">
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Importar Productos</h1>
-              <p className="text-muted-foreground mt-2">
-                Carga productos masivamente mediante archivos CSV
-              </p>
-            </div>
-            
-            <Button onClick={handleDownloadTemplate} variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Descargar Plantilla
-            </Button>
+    <div className="p-8">
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Importar Productos</h1>
+            <p className="text-muted-foreground mt-2">
+              Carga productos masivamente mediante archivos CSV
+            </p>
           </div>
+          
+          <Button onClick={handleDownloadTemplate} variant="outline">
+            <Download className="mr-2 h-4 w-4" />
+            Descargar Plantilla
+          </Button>
         </div>
-
-        <CsvUpload />
       </div>
-    </AppLayout>
+
+      <CsvUpload />
+    </div>
   )
 }

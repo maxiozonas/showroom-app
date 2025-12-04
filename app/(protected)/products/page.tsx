@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ProductsTable } from '@/src/features/products/components'
 import { GenerateQrDialog, QrDetailsDialog } from '@/src/features/qr/components'
-import { AppLayout } from '@/src/components/app-layout'
 import { Button } from '@/components/ui/button'
 import { QrCode, Loader2, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -424,8 +423,7 @@ export default function ProductsPage() {
   }
 
   return (
-    <AppLayout>
-      <div className="p-8">
+    <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Productos</h1>
@@ -493,7 +491,6 @@ export default function ProductsPage() {
           onOpenChange={handleQrDetailsClose}
           qrData={qrData}
         />
-      </div>
-    </AppLayout>
+    </div>
   )
 }

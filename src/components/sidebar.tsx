@@ -3,10 +3,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Package, Upload, History, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Package, Upload, History, ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 
 const navigation = [
   {
@@ -28,7 +29,23 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+      toast.success('Sesión cerrada')
+      router.push('/login')
+      router.refresh()
+    } catch (error) {
+      toast.error('Error al cerrar sesión')
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <div className={cn(
@@ -92,12 +109,25 @@ export function Sidebar() {
         </Button>
       </div>
 
-      {/* Footer */}
-      {!isCollapsed && (
-        <div className="border-t border-red-700 p-4">
-          <p className="text-xs text-red-200">Gili Showroom v1.0</p>
-        </div>
-      )}
+      {/* Footer with Logout */}
+      <div className="border-t border-red-700 p-3">
+        <Button
+          variant="ghost"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className={cn(
+            "w-full text-white hover:bg-red-700 hover:text-white",
+            isCollapsed ? "justify-center px-2" : "justify-start"
+          )}
+          title={isCollapsed ? 'Cerrar sesión' : undefined}
+        >
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          {!isCollapsed && <span className="ml-3">Cerrar sesión</span>}
+        </Button>
+        {!isCollapsed && (
+          <p className="text-xs text-red-200 mt-2 text-center">Gili Showroom v1.0</p>
+        )}
+      </div>
     </div>
   )
 }

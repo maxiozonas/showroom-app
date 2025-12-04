@@ -23,6 +23,10 @@ const CUT_LINE_WIDTH = 2 // Grosor de la línea
 const DASH_LENGTH = 10 // Largo del guión
 const DASH_GAP = 8 // Espacio entre guiones
 
+// Logo en el centro del QR
+const LOGO_PATH = '/gili-logo.png'
+const LOGO_SIZE_RATIO = 0.22 // El logo ocupa 22% del QR
+
 /**
  * Genera un QR code en el cliente (navegador) usando Canvas.
  * Incluye nombre del producto arriba, QR en el centro, y SKU abajo.
@@ -71,12 +75,12 @@ export async function generateQrWithProductInfoClient(
   const qrX = contentX + (CONTENT_WIDTH - qrSize) / 2
   const qrY = contentY + nameAreaHeight
 
-  // Generar QR code
+  // Generar QR code con nivel de corrección alto (permite logo en el centro)
   const qrCanvas = document.createElement('canvas')
   await QRCode.toCanvas(qrCanvas, productInfo.url, {
     width: qrSize,
     margin: 1,
-    errorCorrectionLevel: 'M',
+    errorCorrectionLevel: 'H', // Alto - permite hasta 30% de oclusión para el logo
     color: {
       dark: '#000000',
       light: '#FFFFFF',
@@ -85,6 +89,9 @@ export async function generateQrWithProductInfoClient(
 
   // Dibujar QR en el canvas principal
   ctx.drawImage(qrCanvas, qrX, qrY)
+
+  // Dibujar logo en el centro del QR
+  await drawLogoOnQr(ctx, qrX, qrY, qrSize)
 
   // Configurar texto
   ctx.fillStyle = '#000000'
@@ -104,6 +111,95 @@ export async function generateQrWithProductInfoClient(
 
   // Convertir canvas a data URL (PNG)
   return canvas.toDataURL('image/png', 1.0)
+}
+
+/**
+ * Carga y dibuja el logo en el centro del QR
+ */
+async function drawLogoOnQr(
+  ctx: CanvasRenderingContext2D,
+  qrX: number,
+  qrY: number,
+  qrSize: number
+): Promise<void> {
+  return new Promise((resolve) => {
+    const logo = new Image()
+    logo.crossOrigin = 'anonymous'
+    
+    logo.onload = () => {
+      // Calcular tamaño del logo manteniendo aspect ratio
+      const logoMaxSize = Math.round(qrSize * LOGO_SIZE_RATIO)
+      const aspectRatio = logo.width / logo.height
+      
+      let logoWidth: number
+      let logoHeight: number
+      
+      if (aspectRatio > 1) {
+        // Logo más ancho que alto
+        logoWidth = logoMaxSize
+        logoHeight = Math.round(logoMaxSize / aspectRatio)
+      } else {
+        // Logo más alto que ancho
+        logoHeight = logoMaxSize
+        logoWidth = Math.round(logoMaxSize * aspectRatio)
+      }
+      
+      // Calcular posición centrada
+      const logoX = qrX + (qrSize - logoWidth) / 2
+      const logoY = qrY + (qrSize - logoHeight) / 2
+      
+      // Dibujar fondo blanco para el logo (con padding)
+      const padding = Math.round(Math.max(logoWidth, logoHeight) * 0.15)
+      ctx.fillStyle = '#FFFFFF'
+      ctx.fillRect(
+        logoX - padding,
+        logoY - padding,
+        logoWidth + padding * 2,
+        logoHeight + padding * 2
+      )
+      
+      // Crear canvas temporal para invertir colores del logo (blanco → negro)
+      const tempCanvas = document.createElement('canvas')
+      tempCanvas.width = logo.width
+      tempCanvas.height = logo.height
+      const tempCtx = tempCanvas.getContext('2d')
+      
+      if (tempCtx) {
+        // Dibujar logo original
+        tempCtx.drawImage(logo, 0, 0)
+        
+        // Obtener datos de imagen e invertir colores
+        const imageData = tempCtx.getImageData(0, 0, logo.width, logo.height)
+        const data = imageData.data
+        
+        for (let i = 0; i < data.length; i += 4) {
+          // Invertir RGB (blanco → negro, negro → blanco)
+          data[i] = 255 - data[i]       // R
+          data[i + 1] = 255 - data[i + 1] // G
+          data[i + 2] = 255 - data[i + 2] // B
+          // Alpha se mantiene igual
+        }
+        
+        tempCtx.putImageData(imageData, 0, 0)
+        
+        // Dibujar logo invertido
+        ctx.drawImage(tempCanvas, logoX, logoY, logoWidth, logoHeight)
+      } else {
+        // Fallback: dibujar logo sin invertir
+        ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight)
+      }
+      
+      resolve()
+    }
+    
+    logo.onerror = () => {
+      // Si falla la carga del logo, continuar sin él
+      console.warn('No se pudo cargar el logo del QR')
+      resolve()
+    }
+    
+    logo.src = LOGO_PATH
+  })
 }
 
 /**

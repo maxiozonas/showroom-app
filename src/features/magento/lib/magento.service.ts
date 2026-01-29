@@ -15,7 +15,8 @@ import {
 const MAGENTO_URL = process.env.MAGENTO_URL
 const MAGENTO_ADMIN_USER = process.env.MAGENTO_ADMIN_USER
 const MAGENTO_ADMIN_PASSWORD = process.env.MAGENTO_ADMIN_PASSWORD
-const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) App'
+// User-Agent más realista para evitar bloqueo de Cloudflare
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
 
 // Validar que las credenciales estén configuradas
 if (!MAGENTO_URL || !MAGENTO_ADMIN_USER || !MAGENTO_ADMIN_PASSWORD) {
@@ -39,7 +40,9 @@ export const authenticate = cache(async (): Promise<string | null> => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': USER_AGENT
+        'User-Agent': USER_AGENT,
+        'Accept': 'application/json',
+        'Accept-Language': 'en-US,en;q=0.9'
       },
       body: JSON.stringify({
         username: MAGENTO_ADMIN_USER,
@@ -66,7 +69,11 @@ function getHeaders(token: string): HeadersInit {
   return {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
-    'User-Agent': USER_AGENT
+    'User-Agent': USER_AGENT,
+    'Accept': 'application/json',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
   }
 }
 

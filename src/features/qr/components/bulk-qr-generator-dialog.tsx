@@ -135,17 +135,6 @@ export function BulkQrGeneratorDialog({
       return
     }
 
-    // Calcular layout según cantidad de QRs
-    const qrCount = successfulQrs.length
-    let gridCols = 'grid-cols-1'
-    let qrSize = '8cm'
-    
-    if (qrCount === 2) {
-      gridCols = 'grid-cols-2'
-    } else if (qrCount === 3 || qrCount === 4) {
-      gridCols = 'grid-cols-2'
-    }
-
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -153,8 +142,8 @@ export function BulkQrGeneratorDialog({
           <title>Impresión de QRs</title>
           <style>
             @page {
-              size: A4;
-              margin: 1cm;
+              size: A4 portrait;
+              margin: 0.8cm;
             }
             
             * {
@@ -166,44 +155,51 @@ export function BulkQrGeneratorDialog({
             body {
               font-family: Arial, sans-serif;
               background: white;
+              width: 21cm;
+              height: 29.7cm;
             }
             
             .container {
               width: 100%;
-              height: 100vh;
-              display: grid;
-              ${qrCount === 1 ? 'place-items: center;' : ''}
+              height: 100%;
+              padding: 0.5cm;
             }
             
             .qr-grid {
               display: grid;
-              ${gridCols === 'grid-cols-1' ? '' : `
-                grid-template-columns: repeat(2, 1fr);
-                gap: 1cm;
-              `}
+              grid-template-columns: repeat(2, 1fr);
+              grid-template-rows: repeat(2, 1fr);
+              gap: 0.8cm;
               width: 100%;
-              ${qrCount === 1 ? '' : 'padding: 1cm;'}
+              height: 100%;
             }
             
             .qr-item {
               display: flex;
-              flex-direction: column;
               align-items: center;
               justify-content: center;
               page-break-inside: avoid;
-              ${qrCount > 2 ? 'margin-bottom: 1cm;' : ''}
+              overflow: hidden;
             }
             
             .qr-item img {
-              width: ${qrSize};
-              height: auto;
+              width: 100%;
+              height: 100%;
+              object-fit: contain;
               display: block;
+              max-width: 9cm;
+              max-height: 13cm;
             }
             
             @media print {
               body {
                 print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
+              }
+              
+              @page {
+                size: A4 portrait;
+                margin: 0.8cm;
               }
               
               .qr-item {

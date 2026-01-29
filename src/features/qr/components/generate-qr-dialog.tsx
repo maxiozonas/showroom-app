@@ -57,7 +57,7 @@ export function GenerateQrDialog({
     if (open && product && !qrResult) {
       handleGenerateQR()
     }
-  }, [open, product])
+  }, [open, product, qrResult])
 
   const handleGenerateQR = async () => {
     if (!product || !product.urlKey) {

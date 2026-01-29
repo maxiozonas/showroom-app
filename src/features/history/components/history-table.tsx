@@ -32,10 +32,11 @@ export function HistoryTable() {
   // Debounced search
   const debouncedSearch = useDebounce(search, 500)
   
-  // Resetear página cuando cambia la búsqueda
-  useEffect(() => {
+  // Resetear página cuando cambia la búsqueda (apply rerender-move-effect-to-event en handler)
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
     setPage(1)
-  }, [debouncedSearch])
+  }
   
   // React Query - Fetch history
   const { data, isLoading } = useQrHistory({

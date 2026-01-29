@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ProductService } from '@/src/features/products/lib/product.service'
+import { getProductById, updateProduct, deleteProduct } from '@/src/features/products/lib/product.service'
 import { updateProductSchema } from '@/src/features/products/schemas/product.schema'
 
 // GET /api/products/[id] - Obtener un producto
@@ -18,7 +18,7 @@ export async function GET(
       )
     }
 
-    const product = await ProductService.getProductById(id)
+    const product = await getProductById(id)
     
     if (!product) {
       return NextResponse.json(
@@ -29,7 +29,6 @@ export async function GET(
     
     return NextResponse.json(product)
   } catch (error: any) {
-    console.error('Error fetching product:', error)
     return NextResponse.json(
       { error: error.message || 'Error al obtener producto' },
       { status: 500 }
@@ -58,11 +57,10 @@ export async function PUT(
     // Validar datos
     const validatedData = updateProductSchema.parse(body)
     
-    const product = await ProductService.updateProduct(id, validatedData)
+    const product = await updateProduct(id, validatedData)
     
     return NextResponse.json(product)
   } catch (error: any) {
-    console.error('Error updating product:', error)
     return NextResponse.json(
       { error: error.message || 'Error al actualizar producto' },
       { status: 400 }
@@ -86,11 +84,10 @@ export async function DELETE(
       )
     }
 
-    await ProductService.deleteProduct(id)
+    await deleteProduct(id)
     
     return NextResponse.json({ success: true })
   } catch (error: any) {
-    console.error('Error deleting product:', error)
     return NextResponse.json(
       { error: error.message || 'Error al eliminar producto' },
       { status: 400 }

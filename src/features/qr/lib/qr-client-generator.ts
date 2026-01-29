@@ -1,7 +1,5 @@
 'use client'
 
-import QRCode from 'qrcode'
-
 export interface ProductInfo {
   sku: string
   name: string
@@ -14,12 +12,12 @@ const DPI = 300
 const CM_TO_PX = DPI / 2.54 // 1cm = ~118.11px a 300 DPI
 
 // Dimensiones del área de contenido: 9.9cm x 12.4cm
-const CONTENT_WIDTH = Math.round(9.9 * CM_TO_PX)   // ~1169px
-const CONTENT_HEIGHT = Math.round(12.4 * CM_TO_PX) // ~1465px
+const CONTENT_WIDTH = Math.round(9 * CM_TO_PX)   // ~1169px
+const CONTENT_HEIGHT = Math.round(11 * CM_TO_PX) // ~1465px
 
 // Margen para las líneas de corte punteadas
-const CUT_LINE_MARGIN = Math.round(0.3 * CM_TO_PX) // 0.3cm de margen
-const CUT_LINE_WIDTH = 2 // Grosor de la línea
+const CUT_LINE_MARGIN = Math.round(0.1 * CM_TO_PX) // 0.3cm de margen
+const CUT_LINE_WIDTH = 1 // Grosor de la línea
 const DASH_LENGTH = 10 // Largo del guión
 const DASH_GAP = 8 // Espacio entre guiones
 
@@ -61,22 +59,26 @@ export async function generateQrWithProductInfoClient(
   const contentY = CUT_LINE_MARGIN
 
   // Calcular tamaño del QR (dejando espacio para nombre y SKU)
-  const padding = Math.round(0.15 * CM_TO_PX) // 0.15cm de padding interno (reducido)
+  const padding = Math.round(0.05 * CM_TO_PX) // 0.15cm de padding interno (reducido)
   const nameAreaHeight = Math.round(1.6 * CM_TO_PX) // 1.6cm para el nombre
-  const skuAreaHeight = Math.round(1.0 * CM_TO_PX)  // 1.0cm para el SKU
+  const skuAreaHeight = Math.round(0.5 * CM_TO_PX)  // 1.0cm para el SKU
   
-  // El QR ocupa el espacio restante
-  const qrSize = Math.min(
+  // El QR ocupa el 70% del espacio disponible (reducido para que sea más pequeño)
+  const maxQrSize = Math.min(
     CONTENT_WIDTH - padding * 2,
     CONTENT_HEIGHT - nameAreaHeight - skuAreaHeight - padding * 2
   )
+  const qrSize = Math.round(maxQrSize * 0.85) // Reducir al 70% del tamaño original
 
-  // Centrar el QR horizontalmente
+  // Centrar el QR horizontal y verticalmente
   const qrX = contentX + (CONTENT_WIDTH - qrSize) / 2
-  const qrY = contentY + nameAreaHeight
+  // Centrar verticalmente entre el área del nombre y el área del SKU
+  const availableVerticalSpace = CONTENT_HEIGHT - nameAreaHeight - skuAreaHeight
+  const qrY = contentY + nameAreaHeight + (availableVerticalSpace - qrSize) / 2
 
   // Generar QR code con nivel de corrección alto (permite logo en el centro)
   const qrCanvas = document.createElement('canvas')
+  const QRCode = (await import('qrcode')).default
   await QRCode.toCanvas(qrCanvas, productInfo.url, {
     width: qrSize,
     margin: 1,
@@ -99,15 +101,17 @@ export async function generateQrWithProductInfoClient(
 
   // Dibujar nombre del producto (arriba del QR) - MAYÚSCULAS, BOLD, MÁS GRANDE
   const nameCenterX = contentX + CONTENT_WIDTH / 2
-  const nameCenterY = contentY + nameAreaHeight / 2
-  drawWrappedText(ctx, productInfo.name.toUpperCase(), nameCenterX, nameCenterY, CONTENT_WIDTH - padding * 2, 'bold', 48)
+  const nameTopMargin = Math.round(0.4 * CM_TO_PX) // Margen superior del título (0.4cm)
+  const nameCenterY = contentY + nameTopMargin + (nameAreaHeight - nameTopMargin) / 2
+  const nameMargin = Math.round(0.5 * CM_TO_PX) // Mayor margen lateral para el título (0.5cm)
+  drawWrappedText(ctx, productInfo.name.toUpperCase(), nameCenterX, nameCenterY, CONTENT_WIDTH - nameMargin * 2, 'bold', 48)
 
-  // Dibujar SKU (abajo del QR) - MAYÚSCULAS, BOLD, MÁS GRANDE
+  // Dibujar SKU (pegado a la parte inferior de la tarjeta) - MAYÚSCULAS, BOLD, MÁS GRANDE
   const skuCenterX = contentX + CONTENT_WIDTH / 2
-  const skuCenterY = contentY + nameAreaHeight + qrSize + skuAreaHeight / 2
+  const skuCenterY = contentY + CONTENT_HEIGHT - padding - 30 // 30px desde el borde inferior
   ctx.font = 'bold 48px Arial, sans-serif'
   ctx.textBaseline = 'middle'
-  ctx.fillText(productInfo.sku.toUpperCase(), skuCenterX, skuCenterY)
+  ctx.fillText(`SKU: ${productInfo.sku.toUpperCase()}`, skuCenterX, skuCenterY)
 
   // Convertir canvas a data URL (PNG)
   return canvas.toDataURL('image/png', 1.0)

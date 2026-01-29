@@ -1,17 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { ProductQuery } from '../schemas/product.schema'
-
-interface Product {
-  id: number
-  sku: string
-  name: string
-  brand: string | null
-  urlKey: string | null
-  enabled: boolean
-  hasQrs?: boolean
-  createdAt: string
-  updatedAt: string
-}
+import type { ProductQuery, CreateProductInput, UpdateProductInput } from '../schemas/product.schema'
+import type { Product } from '../types'
 
 interface ProductsResponse {
   products: Product[]
@@ -82,12 +71,12 @@ export function useDeleteProduct() {
   })
 }
 
-// Hook para crear/actualizar producto
+// Hook para crear/actualizar producto (aplicando rerender-functional-setstate)
 export function useSaveProduct() {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: async ({ id, data }: { id?: number; data: any }) => {
+    mutationFn: async ({ id, data }: { id?: number; data: CreateProductInput | UpdateProductInput }) => {
       const url = id ? `/api/products/${id}` : '/api/products'
       const method = id ? 'PUT' : 'POST'
       
@@ -105,7 +94,7 @@ export function useSaveProduct() {
       return response.json()
     },
     onSuccess: (updatedProduct, variables) => {
-      // Si es una edición, actualizar el producto en el caché sin refetch
+      // Si es una edición, actualizar el producto en el caché sin refetch (aplicando rerender-functional-setstate)
       if (variables.id) {
         queryClient.setQueriesData<ProductsResponse>(
           { queryKey: ['products'] },

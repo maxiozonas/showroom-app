@@ -11,7 +11,6 @@ export const ourFileRouter = {
     } 
   })
     .onUploadComplete(async ({ file }) => {
-      console.log("✅ QR uploaded:", file.url)
       return { url: file.url }
     }),
 } satisfies FileRouter

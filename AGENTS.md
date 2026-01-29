@@ -114,7 +114,8 @@ export async function GET(request: NextRequest) {
 ### Database (Prisma)
 - Use Prisma client from `@/lib/prisma`
 - Create service functions in `src/features/*/lib/*.service.ts`
-- Use `cache` from `react` for deduplication: `export const getProducts = cache(async (...) => ...)`
+- **CRITICAL**: Use `React.cache()` ONLY for read operations (queries)
+- **NEVER** use `cache()` for write operations (mutations: create, update, delete)
 - Handle cascade deletes properly
 - Add indexes for frequently queried fields: `@@index([...])`
 

@@ -26,6 +26,7 @@ export interface ImportResult {
   errors: ImportError[]
   created: number
   updated: number
+  totalRows: number
 }
 
 export interface ImportError {

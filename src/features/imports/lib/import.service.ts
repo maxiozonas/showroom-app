@@ -8,6 +8,7 @@ export class ImportService {
       errors: [],
       created: 0,
       updated: 0,
+      totalRows: rows.length,
     }
 
     // Detectar SKUs duplicados en el CSV
@@ -51,12 +52,13 @@ export class ImportService {
         }
 
         if (existing) {
-          // Producto ya existe - marcar como error en lugar de actualizar
-          result.errors.push({
-            row: i + 2,
-            data: row,
-            error: `El SKU ${row.sku} ya existe en la base de datos. Producto: ${existing.name}`,
+          // Producto existe - actualizar
+          await prisma.product.update({
+            where: { id: existing.id },
+            data: productData,
           })
+          result.updated++
+          result.success++
         } else {
           // Crear nuevo producto
           await prisma.product.create({
@@ -83,6 +85,7 @@ export class ImportService {
       errors: [],
       created: 0,
       updated: 0,
+      totalRows: rows.length,
     }
 
     try {

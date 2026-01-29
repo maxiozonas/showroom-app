@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useDebounce } from '@/src/hooks/useDebounce'
 import { useProducts, useDeleteProduct } from '../hooks/useProducts'
+import { useProductSelection } from '../hooks/useProductSelection'
+import type { Product } from '../types'
 import {
   Table,
   TableBody,
@@ -20,48 +22,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Pencil, Trash2, QrCode, Plus, Search, Loader2 } from 'lucide-react'
-import { ProductFormDialog } from './product-form-dialog'
+import { Plus, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import type { ProductQuery } from '../schemas/product.schema'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Checkbox } from '@/components/ui/checkbox'
+import ProductRow from './product-row'
 
-interface Product {
-  id: number
-  sku: string
-  name: string
-  brand: string | null
-  urlKey: string | null
-  enabled: boolean
-  hasQrs?: boolean
-  createdAt: string
-  updatedAt: string
-}
+const ProductFormDialog = lazy(() => import('./product-form-dialog').then(m => ({ default: m.ProductFormDialog })))
 
 interface ProductsTableProps {
   onGenerateQR?: (product: Product) => void
   selectedProducts?: number[]
-  onSelectionChange?: (selectedIds: number[]) => void
+  onSelectionChange?: (selectedIds: number[], selectedProductsData: Product[]) => void
   onProductsLoaded?: (products: Product[]) => void
 }
 
-export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelectionChange, onProductsLoaded }: ProductsTableProps) {
+export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoaded }: ProductsTableProps) {
   // Paginación y filtros
   const [page, setPage] = useState(1)
   const [limit] = useState(10)
   const [search, setSearch] = useState('')
   const [brandFilter, setBrandFilter] = useState('')
   const [enabledFilter, setEnabledFilter] = useState<string>('')
+  
+  // Hook personalizado para manejo de selección
+  const {
+    selectedIds,
+    selectedProducts: internalSelectedProducts,
+    toggleProduct,
+    toggleAll,
+    isSelected,
+  } = useProductSelection()
   
   // Debounced search para evitar llamadas excesivas
   const debouncedSearch = useDebounce(search, 500)
@@ -70,31 +61,59 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
   const [formDialogOpen, setFormDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
 
-  // Manejar selección de productos
+  // Handlers para filtros con reset de página
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const handleBrandFilterChange = (value: string) => {
+    setBrandFilter(value)
+    setPage(1)
+  }
+
+  const handleEnabledFilterChange = (value: string) => {
+    setEnabledFilter(value)
+    setPage(1)
+  }
+
+  // Manejar cambio de selección y notificar al padre
   const handleToggleProduct = (productId: number) => {
-    if (!onSelectionChange) return
+    const product = products.find(p => p.id === productId)
+    if (!product || !onSelectionChange) return
+
+    const wasSelected = isSelected(productId)
     
-    const newSelection = selectedProducts.includes(productId)
-      ? selectedProducts.filter(id => id !== productId)
-      : [...selectedProducts, productId]
+    toggleProduct(productId, product)
     
-    onSelectionChange(newSelection)
+    // Derivamos el nuevo estado basado en si estaba seleccionado antes
+    onSelectionChange(
+      wasSelected
+        ? selectedIds.filter(id => id !== productId)
+        : [...selectedIds, productId],
+      wasSelected
+        ? internalSelectedProducts.filter(p => p.id !== productId)
+        : [...internalSelectedProducts, product]
+    )
   }
 
   const handleToggleAll = () => {
     if (!onSelectionChange) return
     
-    if (selectedProducts.length === products.length) {
-      onSelectionChange([])
-    } else {
-      onSelectionChange(products.map(p => p.id))
-    }
+    const allSelected = products.every(p => isSelected(p.id))
+    
+    toggleAll(products)
+    
+    // Derivamos el nuevo estado basado en si todos estaban seleccionados antes
+    onSelectionChange(
+      allSelected
+        ? selectedIds.filter(id => !products.some(p => p.id === id))
+        : [...new Set([...selectedIds, ...products.map(p => p.id)])],
+      allSelected
+        ? internalSelectedProducts.filter(p => !products.some(prod => prod.id === p.id))
+        : [...new Set([...internalSelectedProducts, ...products])]
+    )
   }
-
-  // Resetear página cuando cambian los filtros
-  useEffect(() => {
-    setPage(1)
-  }, [debouncedSearch, brandFilter, enabledFilter])
 
   // React Query - Fetch products con caché automático
   const { data, isLoading, error } = useProducts({
@@ -110,15 +129,17 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
   // React Query - Delete mutation
   const deleteMutation = useDeleteProduct()
 
-  const products = data?.products || []
+  const currentProducts = data?.products || []
   const pagination = data?.pagination || { page: 1, limit: 10, total: 0, totalPages: 0 }
 
   // Notificar cuando se cargan los productos
   useEffect(() => {
-    if (products.length > 0 && onProductsLoaded) {
-      onProductsLoaded(products)
+    if (currentProducts.length > 0 && onProductsLoaded) {
+      onProductsLoaded(currentProducts)
     }
-  }, [products, onProductsLoaded])
+  }, [currentProducts, onProductsLoaded])
+
+  const products = currentProducts
 
   const handleDelete = async (id: number) => {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return
@@ -165,16 +186,23 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
             />
           </div>
           
-          <Input
-            placeholder="Filtrar por marca..."
-            value={brandFilter}
-            onChange={(e) => setBrandFilter(e.target.value)}
-            className="max-w-[200px]"
-          />
-          
-          <Select value={enabledFilter || 'all'} onValueChange={(value) => {
-            setEnabledFilter(value === 'all' ? '' : value)
-          }}>
+            <Input
+              placeholder="Buscar por SKU o nombre..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-8"
+            />
+            
+            <Input
+              placeholder="Filtrar por marca..."
+              value={brandFilter}
+              onChange={(e) => handleBrandFilterChange(e.target.value)}
+              className="max-w-[200px]"
+            />
+            
+            <Select value={enabledFilter || 'all'} onValueChange={(value) => {
+              handleEnabledFilterChange(value === 'all' ? '' : value)
+            }}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
@@ -200,7 +228,7 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
               {onSelectionChange && (
                 <TableHead className="w-[50px]">
                   <Checkbox
-                    checked={selectedProducts.length === products.length && products.length > 0}
+                    checked={products.length > 0 && products.every(p => isSelected(p.id))}
                     onCheckedChange={handleToggleAll}
                     aria-label="Seleccionar todos"
                   />
@@ -241,55 +269,16 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
               </TableRow>
             ) : (
               products.map((product) => (
-                <TableRow key={product.id}>
-                  {onSelectionChange && (
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedProducts.includes(product.id)}
-                        onCheckedChange={() => handleToggleProduct(product.id)}
-                        disabled={!product.urlKey}
-                        aria-label={`Seleccionar ${product.sku}`}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell className="font-medium">{product.sku}</TableCell>
-                  <TableCell>{product.name}</TableCell>
-                  <TableCell>{product.brand || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={product.enabled ? 'default' : 'secondary'}>
-                      {product.enabled ? 'Habilitado' : 'Deshabilitado'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(product.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(product)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(product.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant={product.hasQrs ? "outline" : "default"}
-                        size="sm"
-                        onClick={() => onGenerateQR?.(product)}
-                      >
-                        <QrCode className="h-4 w-4 mr-2" />
-                        {product.hasQrs ? 'Detalles QR' : 'Generar QR'}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                <ProductRow
+                  key={product.id}
+                  product={product}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onGenerateQR={onGenerateQR}
+                  selected={isSelected(product.id)}
+                  onToggleSelect={onSelectionChange ? handleToggleProduct : undefined}
+                  canSelect={!!onSelectionChange}
+                />
               ))
             )}
           </TableBody>
@@ -325,12 +314,14 @@ export function ProductsTable({ onGenerateQR, selectedProducts = [], onSelection
       </div>
 
       {/* Dialog de formulario */}
-      <ProductFormDialog
-        open={formDialogOpen}
-        onOpenChange={handleFormClose}
-        onSuccess={handleFormSuccess}
-        product={editingProduct}
-      />
+      <Suspense fallback={<Skeleton className="h-[500px] w-[500px]" />}>
+        <ProductFormDialog
+          open={formDialogOpen}
+          onOpenChange={handleFormClose}
+          onSuccess={handleFormSuccess}
+          product={editingProduct}
+        />
+      </Suspense>
     </div>
   )
 }

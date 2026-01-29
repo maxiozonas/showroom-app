@@ -1,14 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ProductsTable } from '@/src/features/products/components'
-import { GenerateQrDialog, QrDetailsDialog } from '@/src/features/qr/components'
 import { Button } from '@/components/ui/button'
-import { QrCode, Loader2, Printer, Trash2 } from 'lucide-react'
+import { QrCode, Loader2, Printer, Trash2, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { QrClientService } from '@/src/features/qr/lib/qr-client.service'
 import { generateQrWithProductInfoClient } from '@/src/features/qr/lib/qr-client-generator'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { CreateProductInput } from '@/src/features/products/schemas/product.schema'
+import { useSaveProduct } from '@/src/features/products/hooks/useProducts'
+
+const GenerateQrDialog = lazy(() => import('@/src/features/qr/components').then(m => ({ default: m.GenerateQrDialog })))
+const QrDetailsDialog = lazy(() => import('@/src/features/qr/components').then(m => ({ default: m.QrDetailsDialog })))
+const MagentoProductDialog = lazy(() => import('@/src/features/magento/components').then(m => ({ default: m.MagentoProductDialog })))
 
 interface Product {
   id: number
@@ -41,13 +47,18 @@ export default function ProductsPage() {
   const [qrDetailsOpen, setQrDetailsOpen] = useState(false)
   const [qrData, setQrData] = useState<QrData | null>(null)
   const [isLoadingQr, setIsLoadingQr] = useState(false)
-  
+
+  // Diálogos
+  const [magentoDialogOpen, setMagentoDialogOpen] = useState(false)
+
   // Selección múltiple de productos
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
+  const [selectedProductsData, setSelectedProductsData] = useState<Product[]>([])
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false)
   const [isDeletingBulk, setIsDeletingBulk] = useState(false)
   const [bulkQrResults, setBulkQrResults] = useState<any[]>([])
-  const [allProducts, setAllProducts] = useState<Product[]>([])
+
+  const saveMutation = useSaveProduct()
 
   const handleGenerateQR = async (product: Product) => {
     setSelectedProduct(product)
@@ -106,6 +117,11 @@ export default function ProductsPage() {
     queryClient.invalidateQueries({ queryKey: ['products'] })
   }
 
+  const handleSelectionChange = (selectedIds: number[], selectedProducts: Product[]) => {
+    setSelectedProductIds(selectedIds)
+    setSelectedProductsData(selectedProducts)
+  }
+
   const handleGenerateBulkQrs = async () => {
     if (selectedProductIds.length === 0) {
       toast.error('❌ Selecciona al menos un producto')
@@ -119,9 +135,7 @@ export default function ProductsPage() {
       const BASE_URL = 'https://giliycia.com.ar'
       
       // Obtener datos de los productos seleccionados
-      const selectedProducts = allProducts.filter((p: Product) => 
-        selectedProductIds.includes(p.id)
-      )
+      const selectedProducts = selectedProductsData
       
       if (selectedProducts.length === 0) {
         toast.error('❌ No se encontraron los productos seleccionados')
@@ -164,6 +178,7 @@ export default function ProductsPage() {
 
       // Limpiar selección y actualizar cache
       setSelectedProductIds([])
+      setSelectedProductsData([])
       handleQrSuccess()
     } catch (error: any) {
       toast.error(`❌ ${error.message}`)
@@ -174,8 +189,8 @@ export default function ProductsPage() {
 
   const handleDeleteBulkQrs = async () => {
     // Filtrar solo productos que tienen QRs
-    const productsWithQrs = allProducts.filter(
-      (p: Product) => selectedProductIds.includes(p.id) && p.hasQrs
+    const productsWithQrs = selectedProductsData.filter(
+      (p: Product) => p.hasQrs
     )
 
     if (productsWithQrs.length === 0) {
@@ -210,6 +225,7 @@ export default function ProductsPage() {
 
       // Limpiar selección y actualizar cache
       setSelectedProductIds([])
+      setSelectedProductsData([])
       handleQrSuccess()
     } catch (error: any) {
       toast.error(`❌ ${error.message}`)
@@ -432,8 +448,16 @@ export default function ProductsPage() {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button 
-              onClick={handleDeleteBulkQrs} 
+            <Button
+              onClick={() => setMagentoDialogOpen(true)}
+              size="lg"
+              variant="outline"
+            >
+              <Download className="mr-2 h-5 w-5" />
+              Importar desde Magento
+            </Button>
+            <Button
+              onClick={handleDeleteBulkQrs}
               size="lg"
               variant="destructive"
               disabled={selectedProductIds.length === 0 || isDeletingBulk || isGeneratingBulk}
@@ -450,8 +474,8 @@ export default function ProductsPage() {
                 </>
               )}
             </Button>
-            <Button 
-              onClick={handleGenerateBulkQrs} 
+            <Button
+              onClick={handleGenerateBulkQrs}
               size="lg"
               disabled={selectedProductIds.length === 0 || isGeneratingBulk || isDeletingBulk}
             >
@@ -473,24 +497,36 @@ export default function ProductsPage() {
         <ProductsTable 
           onGenerateQR={handleGenerateQR}
           selectedProducts={selectedProductIds}
-          onSelectionChange={setSelectedProductIds}
-          onProductsLoaded={setAllProducts}
+          onSelectionChange={handleSelectionChange}
         />
 
         {/* Dialog para generar nuevo QR */}
-        <GenerateQrDialog
-          open={qrDialogOpen}
-          onOpenChange={handleQrDialogClose}
-          product={selectedProduct}
-          onSuccess={handleQrSuccess}
-        />
+        <Suspense fallback={<Skeleton className="h-[500px] w-[400px]" />}>
+          <GenerateQrDialog
+            open={qrDialogOpen}
+            onOpenChange={handleQrDialogClose}
+            product={selectedProduct}
+            onSuccess={handleQrSuccess}
+          />
+        </Suspense>
 
         {/* Dialog para ver detalles de QR existente */}
-        <QrDetailsDialog
-          open={qrDetailsOpen}
-          onOpenChange={handleQrDetailsClose}
-          qrData={qrData}
-        />
+        <Suspense fallback={<Skeleton className="h-[500px] w-[500px]" />}>
+          <QrDetailsDialog
+            open={qrDetailsOpen}
+            onOpenChange={handleQrDetailsClose}
+            qrData={qrData}
+          />
+        </Suspense>
+
+        {/* Dialog para importar desde Magento */}
+        <Suspense fallback={<Skeleton className="h-[500px] w-[500px]" />}>
+          <MagentoProductDialog
+            open={magentoDialogOpen}
+            onOpenChange={setMagentoDialogOpen}
+            onSuccess={handleQrSuccess}
+          />
+        </Suspense>
     </div>
   )
 }

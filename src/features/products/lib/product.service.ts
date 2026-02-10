@@ -70,10 +70,6 @@ export const getProductById = cache(async (id: number) => {
           slug: true,
         },
       },
-      qrs: {
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-      },
     },
   })
 })

@@ -109,7 +109,7 @@ export function ProductFormDialog({
           brand: product.brand || '',
           urlKey: product.urlKey || '',
           enabled: product.enabled,
-          categoryId: product.categoryId || null,
+          categoryId: product.category?.id || null,
         })
       } else {
         form.reset({

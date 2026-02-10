@@ -4,16 +4,12 @@ import { useState, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ProductsTable } from '@/src/features/products/components'
 import { Button } from '@/components/ui/button'
-import { QrCode, Loader2, Printer, Trash2, Download } from 'lucide-react'
+import { Loader2, Printer, Download } from 'lucide-react'
 import { toast } from 'sonner'
-import { QrClientService } from '@/src/features/qr/lib/qr-client.service'
 import { generateQrWithProductInfoClient } from '@/src/features/qr/lib/qr-client-generator'
 import { Skeleton } from '@/components/ui/skeleton'
-import type { CreateProductInput } from '@/src/features/products/schemas/product.schema'
-import { useSaveProduct } from '@/src/features/products/hooks/useProducts'
 
 const GenerateQrDialog = lazy(() => import('@/src/features/qr/components').then(m => ({ default: m.GenerateQrDialog })))
-const QrDetailsDialog = lazy(() => import('@/src/features/qr/components').then(m => ({ default: m.QrDetailsDialog })))
 const MagentoProductDialog = lazy(() => import('@/src/features/magento/components').then(m => ({ default: m.MagentoProductDialog })))
 
 interface Product {
@@ -23,30 +19,14 @@ interface Product {
   brand: string | null
   urlKey: string | null
   enabled: boolean
-  hasQrs?: boolean
   createdAt: string
   updatedAt: string
-}
-
-interface QrData {
-  id: number
-  url: string
-  qrUrl: string
-  createdAt: string
-  product: {
-    sku: string
-    name: string
-    brand: string | null
-  }
 }
 
 export default function ProductsPage() {
   const queryClient = useQueryClient()
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
-  const [qrDetailsOpen, setQrDetailsOpen] = useState(false)
-  const [qrData, setQrData] = useState<QrData | null>(null)
-  const [isLoadingQr, setIsLoadingQr] = useState(false)
 
   // Diálogos
   const [magentoDialogOpen, setMagentoDialogOpen] = useState(false)
@@ -55,50 +35,10 @@ export default function ProductsPage() {
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
   const [selectedProductsData, setSelectedProductsData] = useState<Product[]>([])
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false)
-  const [isDeletingBulk, setIsDeletingBulk] = useState(false)
-  const [bulkQrResults, setBulkQrResults] = useState<any[]>([])
 
-  const saveMutation = useSaveProduct()
-
-  const handleGenerateQR = async (product: Product) => {
+  const handleGenerateQR = (product: Product) => {
     setSelectedProduct(product)
-    
-    // Si el producto ya tiene QR, obtenerlo y mostrar detalles
-    if (product.hasQrs) {
-      setIsLoadingQr(true)
-      try {
-        const response = await fetch(`/api/history?productId=${product.id}&page=1&limit=1`)
-        if (!response.ok) throw new Error('Error al obtener QR')
-        
-        const data = await response.json()
-        if (data.history && data.history.length > 0) {
-          const qr = data.history[0] // Obtener el QR más reciente
-          setQrData({
-            id: qr.id,
-            url: qr.url,
-            qrUrl: qr.qrUrl,
-            createdAt: qr.createdAt,
-            product: {
-              sku: product.sku,
-              name: product.name,
-              brand: product.brand
-            }
-          })
-          setQrDetailsOpen(true)
-        } else {
-          // Si no tiene QR, abrir dialog de generación
-          setQrDialogOpen(true)
-        }
-      } catch (error) {
-        toast.error('❌ Error al cargar el QR')
-        console.error(error)
-      } finally {
-        setIsLoadingQr(false)
-      }
-    } else {
-      // Si no tiene QR, abrir dialog de generación
-      setQrDialogOpen(true)
-    }
+    setQrDialogOpen(true)
   }
 
   const handleQrDialogClose = () => {
@@ -106,14 +46,7 @@ export default function ProductsPage() {
     setSelectedProduct(null)
   }
 
-  const handleQrDetailsClose = () => {
-    setQrDetailsOpen(false)
-    setQrData(null)
-    setSelectedProduct(null)
-  }
-
   const handleQrSuccess = () => {
-    // Invalidar caché de productos para actualizar hasQrs
     queryClient.invalidateQueries({ queryKey: ['products'] })
   }
 
@@ -129,24 +62,13 @@ export default function ProductsPage() {
     }
 
     setIsGeneratingBulk(true)
-    setBulkQrResults([])
 
     try {
       const BASE_URL = 'https://giliycia.com.ar'
-      
-      // Obtener datos de los productos seleccionados
-      const selectedProducts = selectedProductsData
-      
-      if (selectedProducts.length === 0) {
-        toast.error('❌ No se encontraron los productos seleccionados')
-        setIsGeneratingBulk(false)
-        return
-      }
 
-      // 1. Generar QRs en el cliente (rápido, sin subir)
-      toast.info('📊 Generando QRs...')
+      // Generar QRs en el cliente
       const qrDataUrls = await Promise.all(
-        selectedProducts.map(async (p: Product) => {
+        selectedProductsData.map(async (p: Product) => {
           const productUrl = `${BASE_URL}/${p.urlKey}.html`
           const dataUrl = await generateQrWithProductInfoClient({
             sku: p.sku,
@@ -154,83 +76,21 @@ export default function ProductsPage() {
             brand: p.brand,
             url: productUrl,
           })
-          return {
-            productId: p.id,
-            sku: p.sku,
-            name: p.name,
-            dataUrl,
-            productUrl,
-          }
+          return { dataUrl }
         })
       )
 
-      // 2. Abrir ventana de impresión INMEDIATAMENTE (antes de subir)
+      // Imprimir inmediatamente
       handlePrintBulkQrsFromDataUrls(qrDataUrls.map(q => q.dataUrl))
-      toast.success(`✅ ${qrDataUrls.length} QR(s) listos para imprimir`)
+      toast.success(`✅ ${qrDataUrls.length} QR(s) generados`)
 
-      // 3. Subir QRs ya generados al servidor (sin regenerar)
-      toast.info('📤 Guardando QRs en el servidor...')
-      const results = await QrClientService.uploadPreGeneratedQrs(qrDataUrls)
-
-      setBulkQrResults(results)
-      const successCount = results.filter((r: any) => r.success).length
-      toast.success(`✅ ${successCount} QR(s) guardados en el servidor`)
-
-      // Limpiar selección y actualizar cache
+      // Limpiar selección
       setSelectedProductIds([])
       setSelectedProductsData([])
-      handleQrSuccess()
     } catch (error: any) {
       toast.error(`❌ ${error.message}`)
     } finally {
       setIsGeneratingBulk(false)
-    }
-  }
-
-  const handleDeleteBulkQrs = async () => {
-    // Filtrar solo productos que tienen QRs
-    const productsWithQrs = selectedProductsData.filter(
-      (p: Product) => p.hasQrs
-    )
-
-    if (productsWithQrs.length === 0) {
-      toast.error('❌ Ninguno de los productos seleccionados tiene QRs')
-      return
-    }
-
-    // Confirmar eliminación
-    const confirmMessage = `¿Estás seguro de eliminar ${productsWithQrs.length} QR(s)? Esta acción no se puede deshacer.`
-    if (!window.confirm(confirmMessage)) {
-      return
-    }
-
-    setIsDeletingBulk(true)
-
-    try {
-      const response = await fetch('/api/qrs/delete-multiple', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productIds: productsWithQrs.map((p: Product) => p.id),
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Error al eliminar QRs')
-      }
-
-      const data = await response.json()
-      toast.success(`✅ ${data.deleted} QR(s) eliminados exitosamente`)
-
-      // Limpiar selección y actualizar cache
-      setSelectedProductIds([])
-      setSelectedProductsData([])
-      handleQrSuccess()
-    } catch (error: any) {
-      toast.error(`❌ ${error.message}`)
-    } finally {
-      setIsDeletingBulk(false)
     }
   }
 
@@ -457,27 +317,9 @@ export default function ProductsPage() {
               Importar desde Magento
             </Button>
             <Button
-              onClick={handleDeleteBulkQrs}
-              size="lg"
-              variant="destructive"
-              disabled={selectedProductIds.length === 0 || isDeletingBulk || isGeneratingBulk}
-            >
-              {isDeletingBulk ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Eliminando...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="mr-2 h-5 w-5" />
-                  Eliminar QRs ({selectedProductIds.length})
-                </>
-              )}
-            </Button>
-            <Button
               onClick={handleGenerateBulkQrs}
               size="lg"
-              disabled={selectedProductIds.length === 0 || isGeneratingBulk || isDeletingBulk}
+              disabled={selectedProductIds.length === 0 || isGeneratingBulk}
             >
               {isGeneratingBulk ? (
                 <>
@@ -507,15 +349,6 @@ export default function ProductsPage() {
             onOpenChange={handleQrDialogClose}
             product={selectedProduct}
             onSuccess={handleQrSuccess}
-          />
-        </Suspense>
-
-        {/* Dialog para ver detalles de QR existente */}
-        <Suspense fallback={<Skeleton className="h-[500px] w-[500px]" />}>
-          <QrDetailsDialog
-            open={qrDetailsOpen}
-            onOpenChange={handleQrDetailsClose}
-            qrData={qrData}
           />
         </Suspense>
 

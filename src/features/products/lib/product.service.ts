@@ -1,7 +1,6 @@
 import { cache } from 'react'
 import { prisma } from '@/lib/prisma'
 import type { CreateProductInput, UpdateProductInput, ProductQuery } from '../schemas/product.schema'
-import { QrStorageService } from '@/src/features/qr/lib/qr-storage.service'
 
 // Aplicar server-cache-react para deduplicación por-request (apply server-cache-react)
 export const getProducts = cache(async (query: ProductQuery) => {
@@ -43,23 +42,13 @@ export const getProducts = cache(async (query: ProductQuery) => {
             slug: true,
           },
         },
-        qrs: {
-          select: { id: true },
-          take: 1,
-        },
       },
     }),
     prisma.product.count({ where }),
   ])
 
-  const products = productResults.map((product: typeof productResults[0]) => ({
-    ...product,
-    hasQrs: product.qrs.length > 0,
-    qrs: undefined,
-  }))
-
   return {
-    products,
+    products: productResults,
     pagination: {
       page,
       limit,
@@ -127,20 +116,6 @@ export const updateProduct = async (id: number, data: UpdateProductInput) => {
 
 // Eliminar un producto
 export const deleteProduct = async (id: number) => {
-  const qrs = await prisma.qRHistory.findMany({
-    where: { productId: id },
-    select: { qrUrl: true },
-  })
-
-  if (qrs.length > 0) {
-    const qrUrls = qrs.map((qr: { qrUrl: string }) => qr.qrUrl)
-    try {
-      await QrStorageService.deleteMultipleQrs(qrUrls)
-    } catch (error) {
-      console.warn('⚠️ Error eliminando QRs de UploadThing:', error)
-    }
-  }
-
   return prisma.product.delete({
     where: { id },
   })

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Package, Upload, History, ChevronLeft, ChevronRight, LogOut, Tag } from 'lucide-react'
+import { Package, Upload, ChevronLeft, ChevronRight, LogOut, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
@@ -24,11 +24,6 @@ const navigation = [
     name: 'Importar/Exportar',
     href: '/import',
     icon: Upload,
-  },
-  {
-    name: 'Historial QR',
-    href: '/history',
-    icon: History,
   },
 ]
 

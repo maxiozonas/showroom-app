@@ -75,12 +75,12 @@ function ProductRow({
           </Button>
           {onGenerateQR && (
             <Button
-              variant={product.hasQrs ? "outline" : "default"}
+              variant="outline"
               size="sm"
               onClick={() => onGenerateQR(product)}
+              title="Generar QR"
             >
-              <QrCode className="h-4 w-4 mr-2" />
-              {product.hasQrs ? 'Detalles QR' : 'Generar QR'}
+              <QrCode className="h-4 w-4" />
             </Button>
           )}
         </div>

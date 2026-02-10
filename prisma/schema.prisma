@@ -33,7 +33,6 @@ model Product {
   category   Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
-  qrs       QRHistory[]
 
   @@index([sku])
   @@index([name])
@@ -47,17 +46,18 @@ model Product {
   @@index([categoryId, enabled])
 }
 
-model QRHistory {
-  id        Int      @id @default(autoincrement())
-  productId Int
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url       String   // URL del artículo en el ecommerce
-  qrUrl     String   // URL del PNG del QR en Cloudinary
-  createdAt DateTime @default(now())
-
-  // Índices para optimizar queries
-  @@index([productId])
-  @@index([createdAt(sort: Desc)])
-  // Índice compuesto para búsquedas por producto y fecha
-  @@index([productId, createdAt(sort: Desc)])
-}
+// MODEL COMENTADO - Eliminar cuando se confirme que no se necesitan los datos en producción
+// model QRHistory {
+//   id        Int      @id @default(autoincrement())
+//   productId Int
+//   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+//   url       String   // URL del artículo en el ecommerce
+//   qrUrl     String   // URL del PNG del QR en Cloudinary
+//   createdAt DateTime @default(now())
+//
+//   // Índices para optimizar queries
+//   @@index([productId])
+//   @@index([createdAt(sort: Desc)])
+//   // Índice compuesto para búsquedas por producto y fecha
+//   @@index([productId, createdAt(sort: Desc)])
+// }

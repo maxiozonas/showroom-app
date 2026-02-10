@@ -12,9 +12,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Download, Printer, CheckCircle2, Loader2 } from 'lucide-react'
+import { Download, Printer, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { QrClientService } from '../lib/qr-client.service'
 import { generateQrWithProductInfoClient, dataUrlToBlob } from '../lib/qr-client-generator'
 
 interface Product {
@@ -32,13 +31,6 @@ interface GenerateQrDialogProps {
   onSuccess?: () => void
 }
 
-interface QrResult {
-  id: number
-  qrUrl: string
-  url: string
-  createdAt: string
-}
-
 const BASE_URL = 'https://giliycia.com.ar'
 
 export function GenerateQrDialog({
@@ -47,17 +39,16 @@ export function GenerateQrDialog({
   product,
   onSuccess,
 }: GenerateQrDialogProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const [qrResult, setQrResult] = useState<QrResult | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isExisting, setIsExisting] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   // Auto-generar QR cuando se abre el diálogo
   useEffect(() => {
-    if (open && product && !qrResult) {
+    if (open && product && !qrDataUrl) {
       handleGenerateQR()
     }
-  }, [open, product, qrResult])
+  }, [open, product, qrDataUrl])
 
   const handleGenerateQR = async () => {
     if (!product || !product.urlKey) {
@@ -65,13 +56,13 @@ export function GenerateQrDialog({
       return
     }
 
-    setIsLoading(true)
+    setIsGenerating(true)
     setError(null)
 
     try {
       const productUrl = `${BASE_URL}/${product.urlKey}.html`
-      
-      // 1. Generar QR en el cliente INMEDIATAMENTE
+
+      // Generar QR en el cliente
       const dataUrl = await generateQrWithProductInfoClient({
         sku: product.sku,
         name: product.name,
@@ -79,62 +70,31 @@ export function GenerateQrDialog({
         url: productUrl,
       })
 
-      // 2. Mostrar QR inmediatamente con data URL (sin esperar upload)
-      setQrResult({
-        id: 0, // Temporal hasta que se suba
-        qrUrl: dataUrl, // Usar data URL directamente
-        url: productUrl,
-        createdAt: new Date().toISOString(),
-      })
-      setIsLoading(false)
+      setQrDataUrl(dataUrl)
+      setIsGenerating(false)
       toast.success('✅ QR generado')
-
-      // 3. Subir a UploadThing en background (no bloquea)
-      const qrBlob = await dataUrlToBlob(dataUrl)
-      const formData = new FormData()
-      formData.append('file', qrBlob, `qr-${product.sku}.png`)
-      formData.append('productId', product.id.toString())
-      formData.append('url', productUrl)
-
-      fetch('/api/qrs/upload', {
-        method: 'POST',
-        body: formData,
-      }).then(async (response) => {
-        if (response.ok) {
-          const result = await response.json()
-          // Actualizar con URL permanente de UploadThing
-          setQrResult(prev => prev ? {
-            ...prev,
-            id: result.id,
-            qrUrl: result.qrUrl,
-          } : null)
-          
-          if (onSuccess) {
-            onSuccess()
-          }
-        }
-      }).catch((err) => {
-        console.error('Error subiendo QR en background:', err)
-      })
-
     } catch (error: any) {
       setError(error.message)
       toast.error(`❌ ${error.message}`)
-      setIsLoading(false)
+      setIsGenerating(false)
     }
   }
 
+  const handleClose = () => {
+    setQrDataUrl(null)
+    setError(null)
+    onOpenChange(false)
+  }
 
   const handleDownload = async () => {
-    if (!qrResult) return
+    if (!qrDataUrl || !product) return
 
     try {
-      const response = await fetch(qrResult.qrUrl)
-      const blob = await response.blob()
+      const blob = await dataUrlToBlob(qrDataUrl)
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `qr-${product?.sku}.png`
+      a.download = `qr-${product.sku}.png`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -146,7 +106,7 @@ export function GenerateQrDialog({
   }
 
   const handlePrint = () => {
-    if (!qrResult) return
+    if (!qrDataUrl || !product) return
 
     const printWindow = window.open('', '_blank')
     if (!printWindow) {
@@ -162,19 +122,19 @@ export function GenerateQrDialog({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>QR Code - ${product?.sku}</title>
+          <title>QR Code - ${product.sku}</title>
           <style>
             @page {
               size: A4;
               margin: 0.5cm;
             }
-            
+
             * {
               margin: 0;
               padding: 0;
               box-sizing: border-box;
             }
-            
+
             body {
               display: flex;
               align-items: center;
@@ -182,47 +142,46 @@ export function GenerateQrDialog({
               min-height: 100vh;
               background: white;
             }
-            
+
             .qr-container {
               width: ${qrWidth};
               height: ${qrHeight};
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              position: relative;
             }
-            
+
             .qr-container img {
               width: 100%;
               height: 100%;
               object-fit: contain;
             }
-            
+
             @media print {
               body {
                 print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
+              }
+
+              .qr-container {
+                page-break-inside: avoid;
               }
             }
           </style>
         </head>
         <body>
           <div class="qr-container">
-            <img src="${qrResult.qrUrl}" alt="QR Code" />
+            <img src="${qrDataUrl}" alt="QR Code - ${product.sku}" />
           </div>
         </body>
       </html>
     `)
+
     printWindow.document.close()
-    printWindow.focus()
-    
-    // Esperar a que cargue la imagen antes de imprimir
     setTimeout(() => {
       printWindow.print()
     }, 500)
-  }
-
-  const handleClose = () => {
-    setQrResult(null)
-    setError(null)
-    setIsExisting(false)
-    onOpenChange(false)
   }
 
   return (
@@ -230,21 +189,19 @@ export function GenerateQrDialog({
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
           <DialogTitle className="text-center">
-            {isLoading ? 'Cargando...' : isExisting ? 'QR del Producto' : '¡QR Generado!'}
+            {isGenerating ? 'Generando...' : '¡QR Generado!'}
           </DialogTitle>
-          {!isLoading && qrResult && (
+          {!isGenerating && qrDataUrl && (
             <DialogDescription className="text-center">
-              {isExisting 
-                ? 'Este producto ya tiene un código QR generado'
-                : 'Código QR generado exitosamente'}
+              Código QR generado exitosamente
             </DialogDescription>
           )}
         </DialogHeader>
 
-        {isLoading ? (
+        {isGenerating ? (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Cargando código QR...</p>
+            <p className="text-sm text-muted-foreground">Generando código QR...</p>
           </div>
         ) : error ? (
           <div className="space-y-4">
@@ -257,23 +214,13 @@ export function GenerateQrDialog({
               </Button>
             </DialogFooter>
           </div>
-        ) : qrResult ? (
+        ) : qrDataUrl ? (
           <div className="space-y-4">
-            {/* Success Message */}
-            <div className="text-center">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">
-                {isExisting 
-                  ? 'Un producto solo puede tener un código QR'
-                  : 'Código QR generado y guardado exitosamente'}
-              </p>
-            </div>
-
             {/* QR Code */}
             <div className="flex justify-center p-4 bg-muted rounded-lg">
               <div className="relative w-48 h-48">
                 <Image
-                  src={qrResult.qrUrl}
+                  src={qrDataUrl}
                   alt="QR Code"
                   fill
                   className="object-contain"

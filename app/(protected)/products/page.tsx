@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, lazy, Suspense } from 'react'
+import { useState, lazy, Suspense, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ProductsTable } from '@/src/features/products/components'
 import { Button } from '@/components/ui/button'
@@ -50,10 +50,10 @@ export default function ProductsPage() {
     queryClient.invalidateQueries({ queryKey: ['products'] })
   }
 
-  const handleSelectionChange = (count: number, products: Product[]) => {
+  const handleSelectionChange = useCallback((count: number, products: Product[]) => {
     setSelectedCount(count)
     setSelectedProductsForQr(products)
-  }
+  }, [])
 
   const handleGenerateBulkQrs = async () => {
     if (selectedCount === 0) {

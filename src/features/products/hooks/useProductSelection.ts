@@ -22,32 +22,35 @@ export function useProductSelection() {
   const toggleAll = useCallback((products: Product[]) => {
     setSelectedIds(prev => {
       const allSelected = products.every(p => prev.has(p.id))
-      
+
       if (allSelected) {
-        // Deseleccionar todos
         const idsToRemove = new Set(products.map(p => p.id))
         const newSet = new Set(prev)
         idsToRemove.forEach(id => newSet.delete(id))
-        
+
         setSelectedProducts(prevProducts => prevProducts.filter(p => !idsToRemove.has(p.id)))
         return newSet
       } else {
-        // Seleccionar todos los que no están seleccionados
         const newSet = new Set(prev)
-        const newProducts = [...selectedProducts]
-        
-        products.forEach(p => {
-          if (!newSet.has(p.id)) {
-            newSet.add(p.id)
-            newProducts.push(p)
-          }
+
+        setSelectedProducts(prevProducts => {
+          const existingIds = new Set(prevProducts.map(p => p.id))
+          const newProducts = [...prevProducts]
+
+          products.forEach(p => {
+            if (!newSet.has(p.id) && !existingIds.has(p.id)) {
+              newSet.add(p.id)
+              newProducts.push(p)
+            }
+          })
+
+          return newProducts
         })
-        
-        setSelectedProducts(newProducts)
+
         return newSet
       }
     })
-  }, [selectedProducts])
+  }, [])
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set())

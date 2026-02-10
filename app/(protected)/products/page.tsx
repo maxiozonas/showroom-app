@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, lazy, Suspense, useCallback } from 'react'
+import { useState, lazy, Suspense, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ProductsTable } from '@/src/features/products/components'
 import { Button } from '@/components/ui/button'
@@ -31,7 +31,7 @@ export default function ProductsPage() {
   // Diálogos
   const [magentoDialogOpen, setMagentoDialogOpen] = useState(false)
 
-  // Selección múltiple de productos (estado sincronizado con el hook)
+  // Selección múltiple de productos
   const [selectedCount, setSelectedCount] = useState(0)
   const [selectedProductsForQr, setSelectedProductsForQr] = useState<Product[]>([])
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false)
@@ -50,10 +50,16 @@ export default function ProductsPage() {
     queryClient.invalidateQueries({ queryKey: ['products'] })
   }
 
-  const handleSelectionChange = useCallback((count: number, products: Product[]) => {
+  const handleSelectionChange = (count: number, products: Product[]) => {
+    console.log('[DEBUG] handleSelectionChange llamado:', {
+      count,
+      productIds: products.map(p => p.id),
+      productSkus: products.map(p => p.sku),
+      timestamp: new Date().toISOString()
+    })
     setSelectedCount(count)
     setSelectedProductsForQr(products)
-  }, [])
+  }
 
   const handleGenerateBulkQrs = async () => {
     if (selectedCount === 0) {
@@ -61,14 +67,33 @@ export default function ProductsPage() {
       return
     }
 
+    console.log('[DEBUG] handleGenerateBulkQrs - Estado actual:', {
+      selectedCount,
+      selectedProductsForQrLength: selectedProductsForQr.length,
+      productIds: selectedProductsForQr.map(p => p.id),
+      productSkus: selectedProductsForQr.map(p => p.sku)
+    })
+
+    // 🛡️ PROTECCIÓN: Deduplicar productos basado en ID
+    const uniqueProducts = selectedProductsForQr.filter((product, index, self) => 
+      index === self.findIndex((p) => p.id === product.id)
+    )
+
+    console.log('[DEBUG] Después de deduplicación:', {
+      originalLength: selectedProductsForQr.length,
+      uniqueLength: uniqueProducts.length,
+      removedCount: selectedProductsForQr.length - uniqueProducts.length,
+      uniqueIds: uniqueProducts.map(p => p.id)
+    })
+
     setIsGeneratingBulk(true)
 
     try {
       const BASE_URL = 'https://giliycia.com.ar'
 
-      // Generar QRs en el cliente
+      // Generar QRs usando productos únicos (no el estado original)
       const qrDataUrls = await Promise.all(
-        selectedProductsForQr.map(async (p: Product) => {
+        uniqueProducts.map(async (p: Product) => {
           const productUrl = `${BASE_URL}/${p.urlKey}.html`
           const dataUrl = await generateQrWithProductInfoClient({
             sku: p.sku,
@@ -79,6 +104,11 @@ export default function ProductsPage() {
           return { dataUrl }
         })
       )
+
+      console.log('[DEBUG] QRs generados:', {
+        count: qrDataUrls.length,
+        dataUrls: qrDataUrls.map((q, i) => ({ index: i, length: q.dataUrl.length }))
+      })
 
       // Imprimir inmediatamente
       handlePrintBulkQrsFromDataUrls(qrDataUrls.map(q => q.dataUrl))

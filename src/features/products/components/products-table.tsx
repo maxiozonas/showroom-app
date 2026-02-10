@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { useDebounce } from '@/src/hooks/useDebounce'
 import { useProducts, useDeleteProduct } from '../hooks/useProducts'
 import { useProductSelection } from '../hooks/useProductSelection'
@@ -111,19 +111,52 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
     const product = products.find(p => p.id === productId)
     if (!product) return
 
+    console.log('[DEBUG ProductsTable] handleToggleProduct:', { productId, productSku: product.sku })
     toggleProduct(productId, product)
   }
 
   const handleToggleAll = () => {
+    console.log('[DEBUG ProductsTable] handleToggleAll:', { productsCount: products.length })
     toggleAll(products)
   }
 
-  // Notificar al padre cuando cambie la selección
+  // Notificar al padre cuando cambie la selección - usando ref para evitar re-renders
+  const prevCountRef = useRef(selectedCount)
+  const prevProductsRef = useRef<Product[]>(internalSelectedProducts)
+  const notificationCountRef = useRef(0)
+  
   useEffect(() => {
-    if (onSelectionChange) {
+    // Solo notificar si realmente cambió el count o los productos
+    const countChanged = prevCountRef.current !== selectedCount
+    const productsChanged = prevProductsRef.current.length !== internalSelectedProducts.length ||
+      JSON.stringify(prevProductsRef.current.map((p: Product) => p.id)) !== JSON.stringify(internalSelectedProducts.map((p: Product) => p.id))
+    
+    console.log('[DEBUG ProductsTable] useEffect ejecutado:', {
+      selectedCount,
+      internalSelectedProductsLength: internalSelectedProducts.length,
+      prevCount: prevCountRef.current,
+      prevProductsLength: prevProductsRef.current.length,
+      countChanged,
+      productsChanged,
+      willNotify: onSelectionChange && (countChanged || productsChanged),
+      notificationNumber: notificationCountRef.current + 1
+    })
+    
+    if (onSelectionChange && (countChanged || productsChanged)) {
+      notificationCountRef.current++
+      prevCountRef.current = selectedCount
+      prevProductsRef.current = internalSelectedProducts
+      
+      console.log('[DEBUG ProductsTable] Notificando al padre:', {
+        notificationNumber: notificationCountRef.current,
+        selectedCount,
+        productIds: internalSelectedProducts.map(p => p.id),
+        productSkus: internalSelectedProducts.map(p => p.sku)
+      })
+      
       onSelectionChange(selectedCount, internalSelectedProducts)
     }
-  }, [selectedCount, onSelectionChange])
+  }, [selectedCount, internalSelectedProducts, onSelectionChange])
 
   const { data, isLoading, error } = useProducts({
     page,

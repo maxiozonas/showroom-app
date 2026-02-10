@@ -34,8 +34,7 @@ const ProductFormDialog = lazy(() => import('./product-form-dialog').then(m => (
 
 interface ProductsTableProps {
   onGenerateQR?: (product: Product) => void
-  selectedProducts?: number[]
-  onSelectionChange?: (selectedIds: number[], selectedProductsData: Product[]) => void
+  onSelectionChange?: (selectedCount: number, selectedProducts: Product[]) => void
   onProductsLoaded?: (products: Product[]) => void
 }
 
@@ -56,6 +55,7 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
     toggleProduct,
     toggleAll,
     isSelected,
+    count: selectedCount,
   } = useProductSelection()
 
   const debouncedSearch = useDebounce(search, 500)
@@ -109,38 +109,21 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
 
   const handleToggleProduct = (productId: number) => {
     const product = products.find(p => p.id === productId)
-    if (!product || !onSelectionChange) return
-
-    const wasSelected = isSelected(productId)
+    if (!product) return
 
     toggleProduct(productId, product)
-
-    onSelectionChange(
-      wasSelected
-        ? selectedIds.filter(id => id !== productId)
-        : [...selectedIds, productId],
-      wasSelected
-        ? internalSelectedProducts.filter(p => p.id !== productId)
-        : [...internalSelectedProducts, product]
-    )
   }
 
   const handleToggleAll = () => {
-    if (!onSelectionChange) return
-
-    const allSelected = products.every(p => isSelected(p.id))
-
     toggleAll(products)
-
-    onSelectionChange(
-      allSelected
-        ? selectedIds.filter(id => !products.some(p => p.id === id))
-        : [...new Set([...selectedIds, ...products.map(p => p.id)])],
-      allSelected
-        ? internalSelectedProducts.filter(p => !products.some(prod => prod.id === p.id))
-        : [...new Set([...internalSelectedProducts, ...products])]
-    )
   }
+
+  // Notificar al padre cuando cambie la selección
+  useEffect(() => {
+    if (onSelectionChange) {
+      onSelectionChange(selectedCount, internalSelectedProducts)
+    }
+  }, [selectedCount, internalSelectedProducts, onSelectionChange])
 
   const { data, isLoading, error } = useProducts({
     page,

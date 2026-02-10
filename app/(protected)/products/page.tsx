@@ -31,9 +31,9 @@ export default function ProductsPage() {
   // Diálogos
   const [magentoDialogOpen, setMagentoDialogOpen] = useState(false)
 
-  // Selección múltiple de productos
-  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([])
-  const [selectedProductsData, setSelectedProductsData] = useState<Product[]>([])
+  // Selección múltiple de productos (estado sincronizado con el hook)
+  const [selectedCount, setSelectedCount] = useState(0)
+  const [selectedProductsForQr, setSelectedProductsForQr] = useState<Product[]>([])
   const [isGeneratingBulk, setIsGeneratingBulk] = useState(false)
 
   const handleGenerateQR = (product: Product) => {
@@ -50,13 +50,13 @@ export default function ProductsPage() {
     queryClient.invalidateQueries({ queryKey: ['products'] })
   }
 
-  const handleSelectionChange = (selectedIds: number[], selectedProducts: Product[]) => {
-    setSelectedProductIds(selectedIds)
-    setSelectedProductsData(selectedProducts)
+  const handleSelectionChange = (count: number, products: Product[]) => {
+    setSelectedCount(count)
+    setSelectedProductsForQr(products)
   }
 
   const handleGenerateBulkQrs = async () => {
-    if (selectedProductIds.length === 0) {
+    if (selectedCount === 0) {
       toast.error('❌ Selecciona al menos un producto')
       return
     }
@@ -68,7 +68,7 @@ export default function ProductsPage() {
 
       // Generar QRs en el cliente
       const qrDataUrls = await Promise.all(
-        selectedProductsData.map(async (p: Product) => {
+        selectedProductsForQr.map(async (p: Product) => {
           const productUrl = `${BASE_URL}/${p.urlKey}.html`
           const dataUrl = await generateQrWithProductInfoClient({
             sku: p.sku,
@@ -83,10 +83,6 @@ export default function ProductsPage() {
       // Imprimir inmediatamente
       handlePrintBulkQrsFromDataUrls(qrDataUrls.map(q => q.dataUrl))
       toast.success(`✅ ${qrDataUrls.length} QR(s) generados`)
-
-      // Limpiar selección
-      setSelectedProductIds([])
-      setSelectedProductsData([])
     } catch (error: any) {
       toast.error(`❌ ${error.message}`)
     } finally {
@@ -319,7 +315,7 @@ export default function ProductsPage() {
             <Button
               onClick={handleGenerateBulkQrs}
               size="lg"
-              disabled={selectedProductIds.length === 0 || isGeneratingBulk}
+              disabled={selectedCount === 0 || isGeneratingBulk}
             >
               {isGeneratingBulk ? (
                 <>
@@ -329,16 +325,15 @@ export default function ProductsPage() {
               ) : (
                 <>
                   <Printer className="mr-2 h-5 w-5" />
-                  Generar e Imprimir QRs ({selectedProductIds.length})
+                  Generar e Imprimir QRs ({selectedCount})
                 </>
               )}
             </Button>
           </div>
         </div>
 
-        <ProductsTable 
+        <ProductsTable
           onGenerateQR={handleGenerateQR}
-          selectedProducts={selectedProductIds}
           onSelectionChange={handleSelectionChange}
         />
 

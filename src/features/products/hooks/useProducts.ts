@@ -78,39 +78,23 @@ export function useSaveProduct() {
     mutationFn: async ({ id, data }: { id?: number; data: CreateProductInput | UpdateProductInput }) => {
       const url = id ? `/api/products/${id}` : '/api/products'
       const method = id ? 'PUT' : 'POST'
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      
+
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Error al guardar producto')
       }
-      
+
       return response.json()
     },
-    onSuccess: (updatedProduct, variables) => {
-      // Si es una edición, actualizar el producto en el caché sin refetch (aplicando rerender-functional-setstate)
-      if (variables.id) {
-        queryClient.setQueriesData<ProductsResponse>(
-          { queryKey: ['products'] },
-          (oldData) => {
-            if (!oldData) return oldData
-            return {
-              ...oldData,
-              products: oldData.products.map((p) =>
-                p.id === variables.id ? { ...p, ...updatedProduct } : p
-              ),
-            }
-          }
-        )
-      } else {
-        // Si es un nuevo producto, invalidar para que aparezca al inicio
-        queryClient.invalidateQueries({ queryKey: ['products'] })
-      }
+    onSuccess: () => {
+      // Invalidar caché de productos para refrescar (tanto para crear como editar)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
     },
   })
 }

@@ -123,7 +123,7 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
     if (onSelectionChange) {
       onSelectionChange(selectedCount, internalSelectedProducts)
     }
-  }, [selectedCount, internalSelectedProducts])
+  }, [selectedCount, onSelectionChange])
 
   const { data, isLoading, error } = useProducts({
     page,

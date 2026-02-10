@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const csvRowSchema = z.object({
   sku: z.string().min(1, 'SKU es requerido'),
   articulo: z.string().min(1, 'Artículo es requerido'),
+  categoria: z.string().optional().nullable().transform(val => val || null),
   marca: z.string().optional().nullable().transform(val => val || null),
   'url-key': z.string().optional().nullable().transform(val => val || null),
   habilitado: z.union([
@@ -12,7 +13,7 @@ export const csvRowSchema = z.object({
       const normalized = val.toLowerCase().trim()
       if (normalized === 'true' || normalized === '1' || normalized === 'si' || normalized === 'sí') return true
       if (normalized === 'false' || normalized === '0' || normalized === 'no') return false
-      return true // default
+      return true
     })
   ]).default(true),
 })

@@ -7,6 +7,7 @@ export const createProductSchema = z.object({
   brand: z.string().optional().nullable(),
   urlKey: z.string().optional().nullable(),
   enabled: z.boolean(),
+  categoryId: z.number().optional().nullable(),
 })
 
 // Schema para actualizar un producto
@@ -16,6 +17,7 @@ export const updateProductSchema = z.object({
   brand: z.string().optional().nullable(),
   urlKey: z.string().optional().nullable(),
   enabled: z.boolean().optional(),
+  categoryId: z.number().optional().nullable(),
 })
 
 // Schema para query params de listado
@@ -28,6 +30,7 @@ export const productQuerySchema = z.object({
     if (!val) return undefined
     return val === 'true'
   }),
+  categoryId: z.string().nullable().optional().transform(val => val ? parseInt(val) : undefined),
   sortBy: z.string().nullable().optional().transform(val => val || 'createdAt').pipe(z.enum(['sku', 'name', 'brand', 'createdAt', 'updatedAt'])).catch('createdAt'),
   sortOrder: z.string().nullable().optional().transform(val => val || 'desc').pipe(z.enum(['asc', 'desc'])).catch('desc'),
 })

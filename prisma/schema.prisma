@@ -10,27 +10,41 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  @@index([slug])
+  @@index([name])
+}
+
 model Product {
   id        Int         @id @default(autoincrement())
   sku       String      @unique
   name      String
   brand     String?
-  urlKey    String?     // URL key para construir la URL del producto
+  urlKey    String?
   enabled   Boolean     @default(true)
+  categoryId Int?
+  category   Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
   qrs       QRHistory[]
 
-  // Índices para optimizar queries
   @@index([sku])
   @@index([name])
   @@index([brand])
   @@index([enabled])
+  @@index([categoryId])
   @@index([createdAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
-  // Índices compuestos para búsquedas comunes
   @@index([enabled, createdAt(sort: Desc)])
   @@index([brand, enabled])
+  @@index([categoryId, enabled])
 }
 
 model QRHistory {

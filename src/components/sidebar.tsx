@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Package, Upload, History, ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
+import { Package, Upload, History, ChevronLeft, ChevronRight, LogOut, Tag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
@@ -16,7 +16,12 @@ const navigation = [
     icon: Package,
   },
   {
-    name: 'Importar CSV',
+    name: 'Categorías',
+    href: '/categories',
+    icon: Tag,
+  },
+  {
+    name: 'Importar/Exportar',
     href: '/import',
     icon: Upload,
   },

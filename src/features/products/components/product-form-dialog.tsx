@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import {
   Dialog,
   DialogContent,
@@ -22,17 +23,25 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { createProductSchema, updateProductSchema, type CreateProductInput } from '../schemas/product.schema'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { createProductSchema, updateProductSchema, type CreateProductInput, type UpdateProductInput } from '../schemas/product.schema'
 import { toast } from 'sonner'
 import type { Product } from '../types'
 import { useSaveProduct } from '../hooks/useProducts'
+import { useAllCategories } from '@/src/features/categories/hooks/useCategories'
 
 interface ProductFormDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
-  product?: Product | null // Para edición
-  initialData?: CreateProductInput | null // Datos iniciales para importación
+  product?: Product | null
+  initialData?: CreateProductInput | null
 }
 
 export function ProductFormDialog({
@@ -44,22 +53,46 @@ export function ProductFormDialog({
 }: ProductFormDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
   const isEditing = !!product
+  const { data: categories, isLoading: categoriesLoading } = useAllCategories()
 
-  const form = useForm<CreateProductInput>({
-    resolver: zodResolver(createProductSchema),
+  // Schema dinámico que funciona para ambos casos
+  const productFormSchema = z.object({
+    sku: z.string().min(1, 'SKU es requerido').optional(),
+    name: z.string().min(1, 'Nombre es requerido').optional(),
+    brand: z.string().nullable().optional(),
+    urlKey: z.string().nullable().optional(),
+    enabled: z.boolean().optional(),
+    categoryId: z.number().nullable().optional(),
+  }).refine(
+    (data) => {
+      // Si es creación, sku y name son requeridos
+      if (!isEditing) {
+        return !!data.sku && !!data.name && data.sku.trim() !== '' && data.name.trim() !== ''
+      }
+      return true
+    },
+    {
+      message: 'SKU y Nombre son requeridos para crear un producto',
+      path: isEditing ? [] : ['submit'],
+    }
+  )
+
+  const form = useForm<CreateProductInput | UpdateProductInput>({
+    resolver: zodResolver(productFormSchema),
     defaultValues: {
       sku: '',
       name: '',
       brand: '',
       urlKey: '',
       enabled: true,
+      categoryId: null,
     },
+    mode: 'onSubmit',
   })
 
-  // Actualizar valores del formulario y resetear cuando cambia open/product/initialData (apply rerender-move-effect-to-event)
-  const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
-      // Resetear al abrir con valores predeterminados o datos de importación
+  // Resetear formulario cuando cambia el producto (creación -> edición o viceversa)
+  useEffect(() => {
+    if (open) {
       if (initialData) {
         form.reset({
           sku: initialData.sku,
@@ -67,6 +100,7 @@ export function ProductFormDialog({
           brand: initialData.brand || '',
           urlKey: initialData.urlKey || '',
           enabled: initialData.enabled,
+          categoryId: initialData.categoryId || null,
         })
       } else if (product) {
         form.reset({
@@ -75,6 +109,7 @@ export function ProductFormDialog({
           brand: product.brand || '',
           urlKey: product.urlKey || '',
           enabled: product.enabled,
+          categoryId: product.categoryId || null,
         })
       } else {
         form.reset({
@@ -83,33 +118,39 @@ export function ProductFormDialog({
           brand: '',
           urlKey: '',
           enabled: true,
+          categoryId: null,
         })
       }
-    } else {
-      // Resetear al cerrar
-      form.reset({
-        sku: '',
-        name: '',
-        brand: '',
-        urlKey: '',
-        enabled: true,
-      })
     }
+  }, [product, initialData, open, form])
 
+  // Limpiar errores cuando cambia entre modo crear/editar
+  useEffect(() => {
+    form.clearErrors()
+  }, [isEditing, form])
+
+  const handleOpenChange = (newOpen: boolean) => {
     onOpenChange(newOpen)
   }
 
   const [isPending, startTransition] = useTransition()
   const saveMutation = useSaveProduct()
 
-  const onSubmit = (data: CreateProductInput) => {
+  const onSubmit = (data: CreateProductInput | UpdateProductInput) => {
     startTransition(async () => {
       try {
-        await saveMutation.mutateAsync({ 
-          id: product?.id, 
-          data 
+        // Si es edición, enviar solo los campos modificados (no undefined)
+        const dataToSend = isEditing
+          ? Object.fromEntries(
+              Object.entries(data).filter(([_, v]) => v !== undefined)
+            )
+          : data
+
+        await saveMutation.mutateAsync({
+          id: product?.id,
+          data: dataToSend
         })
-        
+
         toast.success(product ? '✅ Producto actualizado exitosamente' : '✅ Producto creado exitosamente')
         form.reset()
         onOpenChange(false)
@@ -165,6 +206,40 @@ export function ProductFormDialog({
                   <FormControl>
                     <Input placeholder="Nombre del producto" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="categoryId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoría</FormLabel>
+                  <Select
+                    onValueChange={(value) => field.onChange(value ? parseInt(value) : null)}
+                    value={field.value?.toString() || ''}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar categoría" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categoriesLoading ? (
+                        <div className="px-2 py-1 text-sm text-muted-foreground">Cargando categorías...</div>
+                      ) : categories && categories.length > 0 ? (
+                        categories.map((cat: any) => (
+                          <SelectItem key={cat.id} value={cat.id.toString()}>
+                            {cat.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-1 text-sm text-muted-foreground">No hay categorías disponibles</div>
+                      )}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

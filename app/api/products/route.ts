@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
       search: searchParams.get('search'),
       brand: searchParams.get('brand'),
       enabled: searchParams.get('enabled'),
+      categoryId: searchParams.get('categoryId'),
       sortBy: searchParams.get('sortBy'),
       sortOrder: searchParams.get('sortOrder'),
     }

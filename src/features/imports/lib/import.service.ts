@@ -1,6 +1,43 @@
 import { prisma } from '@/lib/prisma'
 import type { CsvRow, ImportResult, ImportError } from '../schemas/import.schema'
 
+async function findOrCreateCategory(categoryName: string | null): Promise<number | null> {
+  if (!categoryName || categoryName.trim() === '') {
+    return null
+  }
+
+  const trimmedName = categoryName.trim()
+
+  const existing = await prisma.category.findFirst({
+    where: {
+      name: {
+        mode: 'insensitive',
+        equals: trimmedName,
+      },
+    },
+  })
+
+  if (existing) {
+    return existing.id
+  }
+
+  const slug = trimmedName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  const newCategory = await prisma.category.create({
+    data: {
+      name: trimmedName,
+      slug: slug,
+    },
+  })
+
+  return newCategory.id
+}
+
 export class ImportService {
   static async importProducts(rows: CsvRow[]): Promise<ImportResult> {
     const result: ImportResult = {
@@ -11,10 +48,9 @@ export class ImportService {
       totalRows: rows.length,
     }
 
-    // Detectar SKUs duplicados en el CSV
     const skusSeen = new Set<string>()
     const duplicatesInCsv = new Set<string>()
-    
+
     rows.forEach((row, index) => {
       if (skusSeen.has(row.sku)) {
         duplicatesInCsv.add(row.sku)
@@ -30,18 +66,18 @@ export class ImportService {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
-      
-      // Saltar si es un duplicado en el CSV
+
       if (duplicatesInCsv.has(row.sku) && skusSeen.has(row.sku)) {
-        skusSeen.delete(row.sku) // Solo procesar el primero
+        skusSeen.delete(row.sku)
         continue
       }
-      
+
       try {
-        // Buscar si existe el producto por SKU
         const existing = await prisma.product.findUnique({
           where: { sku: row.sku },
         })
+
+        const categoryId = await findOrCreateCategory(row.categoria)
 
         const productData = {
           sku: row.sku,
@@ -49,10 +85,10 @@ export class ImportService {
           brand: row.marca,
           urlKey: row['url-key'],
           enabled: row.habilitado,
+          categoryId,
         }
 
         if (existing) {
-          // Producto existe - actualizar
           await prisma.product.update({
             where: { id: existing.id },
             data: productData,
@@ -60,7 +96,6 @@ export class ImportService {
           result.updated++
           result.success++
         } else {
-          // Crear nuevo producto
           await prisma.product.create({
             data: productData,
           })
@@ -69,7 +104,7 @@ export class ImportService {
         }
       } catch (error: any) {
         result.errors.push({
-          row: i + 2, // +2 por header y porque index empieza en 0
+          row: i + 2,
           data: row,
           error: error.message || 'Error al procesar producto',
         })
@@ -89,7 +124,6 @@ export class ImportService {
     }
 
     try {
-      // Obtener todos los SKUs existentes
       const existingProducts = await prisma.product.findMany({
         where: {
           sku: {
@@ -103,14 +137,27 @@ export class ImportService {
       const toCreate: any[] = []
       const toUpdate: any[] = []
 
-      // Separar productos a crear vs actualizar
-      rows.forEach((row, index) => {
+      const categoryCache = new Map<string, number | null>()
+
+      for (const row of rows) {
+        let categoryId: number | null = null
+
+        if (row.categoria && row.categoria.trim() !== '') {
+          if (categoryCache.has(row.categoria)) {
+            categoryId = categoryCache.get(row.categoria)!
+          } else {
+            categoryId = await findOrCreateCategory(row.categoria)
+            categoryCache.set(row.categoria, categoryId)
+          }
+        }
+
         const productData = {
           sku: row.sku,
           name: row.articulo,
           brand: row.marca,
           urlKey: row['url-key'],
           enabled: row.habilitado,
+          categoryId,
         }
 
         if (existingSkus.has(row.sku)) {
@@ -124,11 +171,9 @@ export class ImportService {
         } else {
           toCreate.push(productData)
         }
-      })
+      }
 
-      // Ejecutar creates y updates en una transacción batch
       await prisma.$transaction(async (tx) => {
-        // Crear productos nuevos en batch
         if (toCreate.length > 0) {
           await tx.product.createMany({
             data: toCreate,
@@ -137,7 +182,6 @@ export class ImportService {
           result.created = toCreate.length
         }
 
-        // Actualizar productos existentes en batch (transacción)
         if (toUpdate.length > 0) {
           await Promise.all(
             toUpdate.map(update => tx.product.update(update))

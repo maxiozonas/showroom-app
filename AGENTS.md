@@ -48,7 +48,7 @@ pnpm test path/to/test.spec.ts
 - Define types explicitly using `interface` or `type`
 - Export inferred types from Zod schemas: `export type CreateProductInput = z.infer<typeof createProductSchema>`
 - Use generics for reusable functions/hooks
-- Avoid `any` - use `unknown` or proper types instead
+- Avoid `any` - use `unknown` or proper types instead (only exception: API route error handlers)
 
 ### Naming Conventions
 - **Components**: PascalCase (e.g., `ProductsTable`, `ProductFormDialog`)
@@ -57,7 +57,7 @@ pnpm test path/to/test.spec.ts
 - **Constants**: SCREAMING_SNAKE_CASE for truly constant values
 - **Types/Interfaces**: PascalCase (e.g., `Product`, `ProductsResponse`)
 - **Files**: kebab-case (e.g., `product-form-dialog.tsx`)
-- **Zod Schemas**: descriptive names ending in `Schema` (e.g., `createProductSchema`)
+- **Zod Schemas**: descriptive names ending in `Schema` (e.g., `createProductSchema`, `productQuerySchema`)
 
 ### Component Structure
 ```tsx
@@ -97,6 +97,8 @@ export async function GET(request: NextRequest) {
   }
 }
 ```
+- **Language**: Use Spanish for error messages (this is a Spanish-language project)
+- **Validation**: Always validate input with Zod schemas before processing
 
 ### State Management
 - Server Components: Use when possible (default in Next.js App Router)
@@ -107,16 +109,16 @@ export async function GET(request: NextRequest) {
 
 ### Error Handling
 - Use try-catch for async operations
-- Return meaningful error messages
+- Return meaningful error messages in Spanish
 - Log errors with context: `console.error('Context:', error)`
 - Use toast notifications for user feedback (Sonner library)
 
 ### Database (Prisma)
 - Use Prisma client from `@/lib/prisma`
 - Create service functions in `src/features/*/lib/*.service.ts`
-- **CRITICAL**: Use `React.cache()` ONLY for read operations (queries)
+- **CRITICAL**: Use `cache()` from React ONLY for read operations (queries)
 - **NEVER** use `cache()` for write operations (mutations: create, update, delete)
-- Handle cascade deletes properly
+- Handle cascade deletes properly, including external services (e.g., UploadThing)
 - Add indexes for frequently queried fields: `@@index([...])`
 
 ### Styling (Tailwind CSS)
@@ -140,7 +142,7 @@ src/features/{feature-name}/
 - Clean up side effects in useEffect cleanup functions
 - Prefer functional state updates: `setPrev(prev => ...)`
 - Use `React.memo()` for table rows to prevent re-renders
-- Use `React.lazy()` for code splitting large components
+- Use `React.lazy()` for code splitting large components (especially dialogs)
 - Use `Set` for O(1) lookups instead of array.find()
 
 ### Performance
@@ -149,6 +151,7 @@ src/features/{feature-name}/
 - Use Next.js Image component for images
 - Leverage TanStack Query caching (staleTime, gcTime)
 - Derive state in render instead of useEffect when possible
+- Wrap lazy-loaded components in Suspense with fallback
 
 ### Comments
 - Spanish comments are allowed (this is a Spanish-language project)

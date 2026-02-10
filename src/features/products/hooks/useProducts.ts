@@ -21,10 +21,9 @@ async function fetchProducts(params: ProductQuery): Promise<ProductsResponse> {
   if (params.search) searchParams.append('search', params.search)
   if (params.brand) searchParams.append('brand', params.brand)
   if (params.enabled !== undefined) searchParams.append('enabled', params.enabled.toString())
-  
-  // Ordenar por fecha de creación descendente (últimos primero)
-  searchParams.append('sortBy', 'createdAt')
-  searchParams.append('sortOrder', 'desc')
+  if (params.categoryId) searchParams.append('categoryId', params.categoryId.toString())
+  if (params.sortBy) searchParams.append('sortBy', params.sortBy)
+  if (params.sortOrder) searchParams.append('sortOrder', params.sortOrder)
 
   const response = await fetch(`/api/products?${searchParams}`)
   

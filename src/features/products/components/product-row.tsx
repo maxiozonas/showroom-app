@@ -41,6 +41,13 @@ function ProductRow({
       )}
       <TableCell className="font-medium">{product.sku}</TableCell>
       <TableCell>{product.name}</TableCell>
+      <TableCell>
+        {product.category ? (
+          <Badge variant="outline">{product.category.name}</Badge>
+        ) : (
+          <span className="text-muted-foreground text-sm">-</span>
+        )}
+      </TableCell>
       <TableCell>{product.brand || '-'}</TableCell>
       <TableCell>
         <Badge variant={product.enabled ? 'default' : 'secondary'}>

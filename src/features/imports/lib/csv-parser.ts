@@ -19,9 +19,9 @@ export async function parseCSV(file: File): Promise<ParsedCsvResult> {
         header: true,
         skipEmptyLines: true,
         transformHeader: (header) => {
-          // Normalizar nombres de columnas
           const normalized = header.toLowerCase().trim()
           if (normalized === 'artículo' || normalized === 'articulo') return 'articulo'
+          if (normalized === 'categoría' || normalized === 'categoria') return 'categoria'
           return normalized
         },
         complete: (results) => {

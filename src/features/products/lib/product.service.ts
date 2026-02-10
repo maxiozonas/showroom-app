@@ -5,28 +5,30 @@ import { QrStorageService } from '@/src/features/qr/lib/qr-storage.service'
 
 // Aplicar server-cache-react para deduplicación por-request (apply server-cache-react)
 export const getProducts = cache(async (query: ProductQuery) => {
-  const { page, limit, search, brand, enabled, sortBy, sortOrder } = query
+  const { page, limit, search, brand, enabled, categoryId, sortBy, sortOrder } = query
   const skip = (page - 1) * limit
 
-  // Construir filtros
   const where: any = {}
-  
+
   if (search) {
     where.OR = [
       { sku: { contains: search, mode: 'insensitive' } },
       { name: { contains: search, mode: 'insensitive' } },
     ]
   }
-  
+
   if (brand) {
     where.brand = { contains: brand, mode: 'insensitive' }
   }
-  
+
   if (enabled !== undefined) {
     where.enabled = enabled
   }
 
-  // Ejecutar queries en paralelo
+  if (categoryId) {
+    where.categoryId = categoryId
+  }
+
   const [productResults, totalCount] = await Promise.all([
     prisma.product.findMany({
       where,
@@ -34,6 +36,13 @@ export const getProducts = cache(async (query: ProductQuery) => {
       take: limit,
       orderBy: { [sortBy]: sortOrder },
       include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
         qrs: {
           select: { id: true },
           take: 1,
@@ -43,7 +52,6 @@ export const getProducts = cache(async (query: ProductQuery) => {
     prisma.product.count({ where }),
   ])
 
-  // Agregar información de si tiene QRs
   const products = productResults.map((product: typeof productResults[0]) => ({
     ...product,
     hasQrs: product.qrs.length > 0,
@@ -66,6 +74,13 @@ export const getProductById = cache(async (id: number) => {
   return prisma.product.findUnique({
     where: { id },
     include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
       qrs: {
         orderBy: { createdAt: 'desc' },
         take: 5,

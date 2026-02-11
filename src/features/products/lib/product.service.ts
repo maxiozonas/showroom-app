@@ -4,7 +4,7 @@ import type { CreateProductInput, UpdateProductInput, ProductQuery } from '../sc
 
 // Aplicar server-cache-react para deduplicación por-request (apply server-cache-react)
 export const getProducts = cache(async (query: ProductQuery) => {
-  const { page, limit, search, brand, enabled, categoryId, sortBy, sortOrder } = query
+  const { page, limit, search, brand, enabled, printed, categoryId, sortBy, sortOrder } = query
   const skip = (page - 1) * limit
 
   const where: any = {}
@@ -22,6 +22,10 @@ export const getProducts = cache(async (query: ProductQuery) => {
 
   if (enabled !== undefined) {
     where.enabled = enabled
+  }
+
+  if (printed !== undefined) {
+    where.printed = printed
   }
 
   if (categoryId) {

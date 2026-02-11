@@ -45,6 +45,7 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
   const [brandFilter, setBrandFilter] = useState('')
   const [brandInput, setBrandInput] = useState('')
   const [enabledFilter, setEnabledFilter] = useState<string>('')
+  const [printedFilter, setPrintedFilter] = useState<string>('')
   const [categoryFilter, setCategoryFilter] = useState<string>('')
 
   const { data: categories } = useAllCategories()
@@ -71,15 +72,17 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
     if (brandFilter) active.push('Marca')
     if (categoryFilter) active.push('Categoría')
     if (enabledFilter) active.push('Estado')
+    if (printedFilter) active.push('Impresión')
     return active
   }
 
-  const hasActiveFilters = !!(search || brandFilter || enabledFilter || categoryFilter)
+  const hasActiveFilters = !!(search || brandFilter || enabledFilter || printedFilter || categoryFilter)
 
   const handleClearFilters = () => {
     setSearch('')
     setBrandInput('')
     setEnabledFilter('')
+    setPrintedFilter('')
     setCategoryFilter('')
     setPage(1)
   }
@@ -102,10 +105,16 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
     setPage(1)
   }
 
+  const handlePrintedFilterChange = (value: string) => {
+    setPrintedFilter(value)
+    setPage(1)
+  }
+
   const handleCategoryFilterChange = (value: string) => {
     setCategoryFilter(value)
     setPage(1)
   }
+
 
   const handleToggleProduct = (productId: number) => {
     const product = products.find(p => p.id === productId)
@@ -164,6 +173,7 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
     search: debouncedSearch || undefined,
     brand: brandFilter || undefined,
     enabled: enabledFilter ? enabledFilter === 'true' : undefined,
+    printed: printedFilter ? printedFilter === 'true' : undefined,
     categoryId: categoryFilter ? parseInt(categoryFilter) : undefined,
     sortBy: 'createdAt',
     sortOrder: 'desc',
@@ -301,6 +311,31 @@ export function ProductsTable({ onGenerateQR, onSelectionChange, onProductsLoade
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="text-sm">Muestra solo productos habilitados o deshabilitados</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <div className="flex items-center gap-1">
+              <Select value={printedFilter || 'all'} onValueChange={(value) => {
+                handlePrintedFilterChange(value === 'all' ? '' : value)
+              }}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Impresión" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="true">Impresos</SelectItem>
+                  <SelectItem value="false">No impresos</SelectItem>
+                </SelectContent>
+              </Select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-muted-foreground cursor-help flex-shrink-0" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">Muestra productos según estado de impresión del QR</p>
                 </TooltipContent>
               </Tooltip>
             </div>

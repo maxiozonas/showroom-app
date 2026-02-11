@@ -21,10 +21,10 @@ export default function ImportPage() {
   const { data: categories } = useAllCategories()
 
   const handleDownloadTemplate = () => {
-    const template = `sku,articulo,categoria,marca,url-key,habilitado
-SKU-001,Silla de oficina,Salon Aberturas,MarcaX,url-silla,true
-SKU-002,Escritorio,Salon Aberturas,MarcaY,url-escritorio,true
-SKU-003,Lámpara,,,url-lampara,false`
+    const template = `sku,articulo,categoria,marca,url-key,habilitado,impreso
+SKU-001,Silla de oficina,Salon Aberturas,MarcaX,url-silla,true,false
+SKU-002,Escritorio,Salon Aberturas,MarcaY,url-escritorio,true,true
+SKU-003,Lámpara,,,url-lampara,false,false`
 
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)

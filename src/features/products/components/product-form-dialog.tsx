@@ -62,6 +62,7 @@ export function ProductFormDialog({
     brand: z.string().nullable().optional(),
     urlKey: z.string().nullable().optional(),
     enabled: z.boolean().optional(),
+    printed: z.boolean().optional(),
     categoryId: z.number().nullable().optional(),
   }).refine(
     (data) => {
@@ -85,6 +86,7 @@ export function ProductFormDialog({
       brand: '',
       urlKey: '',
       enabled: true,
+      printed: false,
       categoryId: null,
     },
     mode: 'onSubmit',
@@ -100,6 +102,7 @@ export function ProductFormDialog({
           brand: initialData.brand || '',
           urlKey: initialData.urlKey || '',
           enabled: initialData.enabled,
+          printed: initialData.printed,
           categoryId: initialData.categoryId || null,
         })
       } else if (product) {
@@ -109,6 +112,7 @@ export function ProductFormDialog({
           brand: product.brand || '',
           urlKey: product.urlKey || '',
           enabled: product.enabled,
+          printed: product.printed,
           categoryId: product.category?.id || null,
         })
       } else {
@@ -118,6 +122,7 @@ export function ProductFormDialog({
           brand: '',
           urlKey: '',
           enabled: true,
+          printed: false,
           categoryId: null,
         })
       }
@@ -290,6 +295,27 @@ export function ProductFormDialog({
                     <FormLabel className="text-base">Habilitado</FormLabel>
                     <div className="text-sm text-muted-foreground">
                       El producto estará visible en el showroom
+                    </div>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="printed"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Impreso</FormLabel>
+                    <div className="text-sm text-muted-foreground">
+                      Marca si el QR del producto ya fue impreso
                     </div>
                   </div>
                   <FormControl>

@@ -29,6 +29,7 @@ model Product {
   brand     String?
   urlKey    String?
   enabled   Boolean     @default(true)
+  printed   Boolean     @default(false)
   categoryId Int?
   category   Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   createdAt DateTime    @default(now())
@@ -44,6 +45,10 @@ model Product {
   @@index([enabled, createdAt(sort: Desc)])
   @@index([brand, enabled])
   @@index([categoryId, enabled])
+  @@index([printed])
+  @@index([printed, createdAt(sort: Desc)])
+  @@index([brand, printed])
+  @@index([categoryId, printed])
 }
 
 // MODEL COMENTADO - Eliminar cuando se confirme que no se necesitan los datos en producción

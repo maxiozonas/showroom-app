@@ -85,6 +85,7 @@ export class ImportService {
           brand: row.marca,
           urlKey: row['url-key'],
           enabled: row.habilitado,
+          printed: row.impreso,
           categoryId,
         }
 
@@ -157,6 +158,7 @@ export class ImportService {
           brand: row.marca,
           urlKey: row['url-key'],
           enabled: row.habilitado,
+          printed: row.impreso,
           categoryId,
         }
 

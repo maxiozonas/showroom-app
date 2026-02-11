@@ -113,10 +113,10 @@ export function CsvUpload() {
   }
 
   const handleDownloadTemplate = () => {
-    const template = `sku,articulo,marca,habilitado,url-key
-SKU-001,Silla de oficina,MarcaX,true,silla-de-oficina-marcax
-SKU-002,Escritorio,MarcaY,true,escritorio-marcay
-SKU-003,Lámpara,,false,lampara`
+    const template = `sku,articulo,categoria,marca,url-key,habilitado,impreso
+SKU-001,Silla de oficina,Salon Aberturas,MarcaX,url-silla,true,false
+SKU-002,Escritorio,Salon Aberturas,MarcaY,url-escritorio,true,true
+SKU-003,Lámpara,,,url-lampara,false,false`
 
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)
@@ -136,7 +136,7 @@ SKU-003,Lámpara,,false,lampara`
         <CardHeader>
           <CardTitle>Importar Productos desde CSV</CardTitle>
           <CardDescription>
-            Sube un archivo CSV con las columnas: <strong>sku</strong>, <strong>articulo</strong>, <strong>marca</strong> (opcional), <strong>habilitado</strong> (opcional)
+            Sube un archivo CSV con las columnas: <strong>sku</strong>, <strong>articulo</strong>, <strong>categoria</strong> (opcional), <strong>marca</strong> (opcional), <strong>url-key</strong> (opcional), <strong>habilitado</strong> (opcional), <strong>impreso</strong> (opcional)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -308,18 +308,20 @@ SKU-003,Lámpara,,false,lampara`
             <ul className="list-disc list-inside space-y-1 ml-4">
               <li><strong>sku</strong>: Código único del producto (requerido)</li>
               <li><strong>articulo</strong>: Nombre del producto (requerido)</li>
+              <li><strong>categoria</strong>: Categoría del producto (opcional)</li>
               <li><strong>marca</strong>: Marca del producto (opcional)</li>
-              <li><strong>habilitado</strong>: true/false, 1/0, si/no (opcional, por defecto true)</li>
               <li><strong>url-key</strong>: Slug para construir la URL del producto (opcional)</li>
+              <li><strong>habilitado</strong>: true/false, 1/0, si/no (opcional, por defecto true)</li>
+              <li><strong>impreso</strong>: true/false, 1/0, si/no (opcional, por defecto false)</li>
             </ul>
             <p className="mt-4 text-muted-foreground">
               Ejemplo de CSV:
             </p>
             <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
-{`sku,articulo,marca,habilitado,url-key
-ABC-001,Producto 1,Marca A,true,producto-1-marca-a
-ABC-002,Producto 2,Marca B,false,producto-2-marca-b
-ABC-003,Producto 3,,true,producto-3`}
+{`sku,articulo,categoria,marca,url-key,habilitado,impreso
+ABC-001,Producto 1,Categoria A,Marca A,producto-1-marca-a,true,false
+ABC-002,Producto 2,Categoria B,Marca B,producto-2-marca-b,false,true
+ABC-003,Producto 3,,,,true,false`}
             </pre>
           </div>
         </CardContent>

@@ -5,6 +5,7 @@ export interface Product {
   brand: string | null
   urlKey: string | null
   enabled: boolean
+  printed: boolean
   category?: {
     id: number
     name: string

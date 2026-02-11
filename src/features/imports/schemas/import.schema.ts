@@ -16,6 +16,15 @@ export const csvRowSchema = z.object({
       return true
     })
   ]).default(true),
+  impreso: z.union([
+    z.boolean(),
+    z.string().transform(val => {
+      const normalized = val.toLowerCase().trim()
+      if (normalized === 'true' || normalized === '1' || normalized === 'si' || normalized === 'sí') return true
+      if (normalized === 'false' || normalized === '0' || normalized === 'no') return false
+      return false
+    })
+  ]).default(false),
 })
 
 // Type para una fila del CSV

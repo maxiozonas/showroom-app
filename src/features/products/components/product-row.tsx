@@ -50,9 +50,14 @@ function ProductRow({
       </TableCell>
       <TableCell>{product.brand || '-'}</TableCell>
       <TableCell>
-        <Badge variant={product.enabled ? 'default' : 'secondary'}>
-          {product.enabled ? 'Habilitado' : 'Deshabilitado'}
-        </Badge>
+        <div className="flex flex-col gap-1">
+          <Badge variant={product.enabled ? 'default' : 'secondary'}>
+            {product.enabled ? 'Habilitado' : 'Deshabilitado'}
+          </Badge>
+          <Badge variant={product.printed ? 'outline' : 'secondary'}>
+            {product.printed ? 'Impreso' : 'Sin imprimir'}
+          </Badge>
+        </div>
       </TableCell>
       <TableCell>
         {new Date(product.createdAt).toLocaleDateString()}

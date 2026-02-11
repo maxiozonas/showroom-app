@@ -7,6 +7,7 @@ export const createProductSchema = z.object({
   brand: z.string().optional().nullable(),
   urlKey: z.string().optional().nullable(),
   enabled: z.boolean(),
+  printed: z.boolean().optional(),
   categoryId: z.number().optional().nullable(),
 })
 
@@ -17,6 +18,7 @@ export const updateProductSchema = z.object({
   brand: z.string().optional().nullable(),
   urlKey: z.string().optional().nullable(),
   enabled: z.boolean().optional(),
+  printed: z.boolean().optional(),
   categoryId: z.number().optional().nullable(),
 })
 
@@ -27,6 +29,10 @@ export const productQuerySchema = z.object({
   search: z.string().nullable().optional().transform(val => val || undefined),
   brand: z.string().nullable().optional().transform(val => val || undefined),
   enabled: z.string().nullable().optional().transform(val => {
+    if (!val) return undefined
+    return val === 'true'
+  }),
+  printed: z.string().nullable().optional().transform(val => {
     if (!val) return undefined
     return val === 'true'
   }),

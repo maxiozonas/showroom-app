@@ -8,6 +8,7 @@ export interface ExportProduct {
   marca: string | null
   'url-key': string | null
   habilitado: boolean
+  impreso: boolean
 }
 
 export class ExportService {
@@ -39,6 +40,7 @@ export class ExportService {
       marca: product.brand || '',
       'url-key': product.urlKey || '',
       habilitado: product.enabled,
+      impreso: (product as any).printed,
     }))
 
     const csv = Papa.unparse(exportData, {
